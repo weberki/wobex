@@ -138,6 +138,7 @@ import {
 } from "../lib/terminalContext";
 import { selectThreadTerminalState, useTerminalStateStore } from "../terminalStateStore";
 import { ChatComposer, type ChatComposerHandle } from "./chat/ChatComposer";
+import { hasActivitySummarySignals } from "./activitySummary.logic";
 import { ExpandedImageDialog } from "./chat/ExpandedImageDialog";
 import { PullRequestThreadDialog } from "./PullRequestThreadDialog";
 import { MessagesTimeline } from "./chat/MessagesTimeline";
@@ -1450,6 +1451,16 @@ export default function ChatView(props: ChatViewProps) {
       })
     : null;
   const gitStatusQuery = useGitStatus({ environmentId, cwd: gitCwd });
+  const hasActivitySummaryPanelSignals = useMemo(
+    () =>
+      hasActivitySummarySignals({
+        activePlan,
+        activeProposedPlan: sidebarProposedPlan,
+        workLogEntries,
+        gitStatus: gitStatusQuery.data,
+      }),
+    [activePlan, gitStatusQuery.data, sidebarProposedPlan, workLogEntries],
+  );
   const keybindings = useServerKeybindings();
   const availableEditors = useServerAvailableEditors();
   const activeProviderStatus = useMemo(
@@ -3564,6 +3575,7 @@ export default function ChatView(props: ChatViewProps) {
                 activeProposedPlan={activeProposedPlan}
                 activePlan={activePlan as { turnId?: TurnId } | null}
                 sidebarProposedPlan={sidebarProposedPlan as { turnId?: TurnId } | null}
+                hasActivitySummaryPanelSignals={hasActivitySummaryPanelSignals}
                 planSidebarOpen={planSidebarOpen}
                 runtimeMode={runtimeMode}
                 interactionMode={interactionMode}

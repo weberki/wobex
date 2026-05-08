@@ -302,10 +302,10 @@ const ComposerFooterModeControls = memo(function ComposerFooterModeControls(prop
             size="sm"
             type="button"
             onClick={props.onTogglePlanSidebar}
-            title={props.planSidebarOpen ? "Hide plan panel" : "Show plan panel"}
+            title={props.planSidebarOpen ? "Hide progress panel" : "Show progress panel"}
           >
             <ListTodoIcon />
-            <span className="sr-only sm:not-sr-only">Plan</span>
+            <span className="sr-only sm:not-sr-only">Progress</span>
           </Button>
         </>
       ) : null}
@@ -439,6 +439,7 @@ export interface ChatComposerProps {
   activeProposedPlan: Thread["proposedPlans"][number] | null;
   activePlan: { turnId?: TurnId } | null;
   sidebarProposedPlan: { turnId?: TurnId } | null;
+  hasActivitySummaryPanelSignals: boolean;
   planSidebarOpen: boolean;
 
   // Mode
@@ -533,6 +534,7 @@ export const ChatComposer = memo(
       activeProposedPlan,
       activePlan,
       sidebarProposedPlan,
+      hasActivitySummaryPanelSignals,
       planSidebarOpen,
       runtimeMode,
       interactionMode,
@@ -994,7 +996,9 @@ export const ChatComposer = memo(
       (showPlanFollowUpPrompt && activeProposedPlan !== null);
 
     const composerFooterHasWideActions = showPlanFollowUpPrompt || activePendingProgress !== null;
-    const showPlanSidebarToggle = Boolean(activePlan || sidebarProposedPlan || planSidebarOpen);
+    const showPlanSidebarToggle = Boolean(
+      activePlan || sidebarProposedPlan || hasActivitySummaryPanelSignals || planSidebarOpen,
+    );
     const composerFooterActionLayoutKey = useMemo(() => {
       if (activePendingProgress) {
         return `pending:${activePendingProgress.questionIndex}:${activePendingProgress.isLastQuestion}:${activePendingIsResponding}`;

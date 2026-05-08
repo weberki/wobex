@@ -53,9 +53,11 @@ import { cn } from "~/lib/utils";
 import type { ActivePlanState, LatestProposedPlanState, WorkLogEntry } from "../session-logic";
 import type { Thread, TurnDiffFileChange } from "../types";
 import { basenameOfPath } from "../vscode-icons";
+import { ActivitySummaryPanel } from "./ActivitySummaryPanel";
 import ChatMarkdown from "./ChatMarkdown";
 import { ChangedFilesTree } from "./chat/ChangedFilesTree";
 import { VscodeEntryIcon } from "./chat/VscodeEntryIcon";
+import { deriveActivitySummaryModel } from "./activitySummary.logic";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "./ui/empty";
@@ -282,6 +284,7 @@ export const WorkspaceWindow = memo(function WorkspaceWindow(props: {
               activeProposedPlan={props.activeProposedPlan}
               workLogEntries={props.workLogEntries}
               environmentId={props.environmentId}
+              gitCwd={props.gitCwd}
               markdownCwd={props.markdownCwd}
               workspaceRoot={props.workspaceRoot}
               timestampFormat={props.timestampFormat}
@@ -340,150 +343,47 @@ const WorkspacePlanPanel = memo(function WorkspacePlanPanel(props: {
   activeProposedPlan: LatestProposedPlanState | null;
   workLogEntries: ReadonlyArray<WorkLogEntry>;
   environmentId: EnvironmentId;
+  gitCwd: string | null;
   markdownCwd: string | undefined;
   workspaceRoot: string | undefined;
   timestampFormat: TimestampFormat;
 }) {
-  const completedStepCount =
-    props.activePlan?.steps.filter((step) => step.status === "completed").length ?? 0;
-  const totalStepCount = props.activePlan?.steps.length ?? 0;
-  const backgroundAgents = useMemo(() => {
-    for (let index = props.workLogEntries.length - 1; index >= 0; index -= 1) {
-      const entry = props.workLogEntries[index];
-      if (entry?.itemType !== "collab_agent_tool_call") {
-        continue;
-      }
-      const payload =
-        entry.payload && typeof entry.payload === "object"
-          ? (entry.payload as Record<string, unknown>)
-          : null;
-      const data =
-        payload && typeof payload.data === "object"
-          ? (payload.data as Record<string, unknown>)
-          : null;
-      const item =
-        data && typeof data.item === "object" ? (data.item as Record<string, unknown>) : null;
-      const states =
-        item && typeof item.agentsStates === "object"
-          ? (item.agentsStates as Record<string, unknown>)
-          : null;
-      if (!states) {
-        continue;
-      }
-
-      return Object.entries(states).flatMap(([threadId, state]) => {
-        if (!state || typeof state !== "object") {
-          return [];
-        }
-        const record = state as Record<string, unknown>;
-        const status = typeof record.status === "string" ? record.status : null;
-        const message = typeof record.message === "string" ? record.message.trim() : "";
-        if (!status) {
-          return [];
-        }
-        return [{ threadId, status, message }];
-      });
-    }
-    return [];
-  }, [props.workLogEntries]);
-  const backgroundAgentStatusSummary = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const agent of backgroundAgents) {
-      counts.set(agent.status, (counts.get(agent.status) ?? 0) + 1);
-    }
-    return [...counts.entries()].map(([status, count]) => `${count} ${status}`);
-  }, [backgroundAgents]);
+  const gitStatus = useGitStatus({ environmentId: props.environmentId, cwd: props.gitCwd });
+  const summaryModel = useMemo(
+    () =>
+      deriveActivitySummaryModel({
+        activePlan: props.activePlan,
+        activeProposedPlan: props.activeProposedPlan,
+        workLogEntries: props.workLogEntries,
+        gitStatus: gitStatus.data,
+        gitStatusPending: gitStatus.isPending,
+      }),
+    [
+      gitStatus.data,
+      gitStatus.isPending,
+      props.activePlan,
+      props.activeProposedPlan,
+      props.workLogEntries,
+    ],
+  );
 
   return (
     <ScrollArea className="h-full">
       <div className="space-y-4 p-3">
-        {(totalStepCount > 0 || backgroundAgents.length > 0) && (
-          <div className="rounded-lg border border-border/50 bg-background/45 p-3">
-            <div className="flex flex-wrap items-center gap-2">
-              {totalStepCount > 0 && (
-                <Badge
-                  variant="secondary"
-                  className="rounded-md bg-blue-500/10 px-1.5 py-0 text-[10px] font-semibold tracking-wide text-blue-400"
-                >
-                  {completedStepCount} of {totalStepCount} completed
-                </Badge>
-              )}
-              {backgroundAgents.length > 0 && (
-                <Badge
-                  variant="secondary"
-                  className="rounded-md bg-amber-500/10 px-1.5 py-0 text-[10px] font-semibold tracking-wide text-amber-300"
-                >
-                  {backgroundAgents.length} background agent
-                  {backgroundAgents.length === 1 ? "" : "s"}
-                </Badge>
-              )}
-            </div>
-            {backgroundAgentStatusSummary.length > 0 && (
-              <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground/55">
-                {backgroundAgentStatusSummary.join(", ")}
-              </p>
-            )}
-            {backgroundAgents.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1">
-                {backgroundAgents.map((agent) => (
-                  <span
-                    key={`${agent.threadId}:${agent.status}:${agent.message}`}
-                    className="rounded-md border border-border/55 bg-background/75 px-1.5 py-0.5 text-[10px] text-muted-foreground/75"
-                    title={
-                      agent.message.length > 0
-                        ? `${agent.threadId} ${agent.status} - ${agent.message}`
-                        : `${agent.threadId} ${agent.status}`
-                    }
-                  >
-                    {agent.threadId.slice(0, 8)} {agent.status}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        <ActivitySummaryPanel model={summaryModel} />
         {props.activePlan?.explanation ? (
-          <p className="text-[13px] leading-relaxed text-muted-foreground/80">
+          <p className="mx-auto max-w-[340px] text-[13px] leading-relaxed text-muted-foreground/80">
             {props.activePlan.explanation}
           </p>
         ) : null}
-        {props.activePlan?.steps.length ? (
-          <div className="space-y-1">
-            {props.activePlan.steps.map((step) => (
-              <div
-                key={`${step.status}:${step.step}`}
-                className="rounded-lg border border-border/50 bg-background/40 px-3 py-2"
-              >
-                <p className="text-[12px] font-medium text-foreground/90">{step.step}</p>
-                <p className="mt-1 text-[11px] uppercase tracking-wide text-muted-foreground/55">
-                  {step.status}
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : null}
         {props.activeProposedPlan?.planMarkdown ? (
-          <div className="rounded-lg border border-border/50 bg-background/50 p-3">
+          <div className="mx-auto max-w-[340px] rounded-lg border border-[color:var(--color-border-light,var(--border))] bg-background/50 p-3">
             <ChatMarkdown
               text={props.activeProposedPlan.planMarkdown}
               cwd={props.markdownCwd}
               isStreaming={false}
             />
           </div>
-        ) : null}
-        {!props.activePlan && !props.activeProposedPlan && backgroundAgents.length === 0 ? (
-          <Empty className="min-h-96 py-10">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <BookOpenIcon className="size-4.5" />
-              </EmptyMedia>
-              <EmptyTitle>No plan open</EmptyTitle>
-              <EmptyDescription>
-                Generate or implement a plan and it will appear here without taking over the main
-                chat.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
         ) : null}
       </div>
     </ScrollArea>
