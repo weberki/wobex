@@ -1,0 +1,85 @@
+{
+  "name": "@wobex/monorepo",
+  "private": true,
+  "workspaces": {
+    "packages": [
+      "apps/*",
+      "packages/*",
+      "scripts"
+    ],
+    "catalog": {
+      "effect": "4.0.0-beta.45",
+      "@effect/atom-react": "4.0.0-beta.45",
+      "@effect/platform-bun": "4.0.0-beta.45",
+      "@effect/platform-node": "4.0.0-beta.45",
+      "@effect/platform-node-shared": "4.0.0-beta.45",
+      "@effect/sql-sqlite-bun": "4.0.0-beta.45",
+      "@effect/vitest": "4.0.0-beta.45",
+      "@effect/language-service": "0.84.2",
+      "@types/bun": "^1.3.9",
+      "@types/node": "^24.10.13",
+      "tsdown": "^0.20.3",
+      "typescript": "^5.7.3",
+      "vitest": "^4.0.0"
+    }
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "bun scripts/dev-runner.ts dev",
+    "dev:server": "bun scripts/dev-runner.ts dev:server",
+    "dev:web": "bun scripts/dev-runner.ts dev:web",
+    "dev:marketing": "turbo run dev --filter=@wobex/marketing",
+    "dev:desktop": "bun scripts/dev-runner.ts dev:desktop",
+    "play": "bun run dev:desktop",
+    "play:desktop": "bun run dev:desktop",
+    "play:web": "bun run dev",
+    "start": "turbo run start --filter=wobex",
+    "start:desktop": "turbo run start --filter=@wobex/desktop",
+    "start:marketing": "turbo run preview --filter=@wobex/marketing",
+    "start:mock-update-server": "bun run scripts/mock-update-server.ts",
+    "build": "turbo run build",
+    "build:marketing": "turbo run build --filter=@wobex/marketing",
+    "build:desktop": "turbo run build --filter=@wobex/desktop --filter=wobex",
+    "typecheck": "turbo run typecheck",
+    "lint": "oxlint --report-unused-disable-directives",
+    "test": "turbo run test",
+    "test:desktop-smoke": "turbo run smoke-test --filter=@wobex/desktop",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "build:contracts": "turbo run build --filter=@wobex/contracts",
+    "dist:desktop:artifact": "node scripts/build-desktop-artifact.ts",
+    "dist:desktop:dmg": "node scripts/build-desktop-artifact.ts --platform mac --target dmg",
+    "dist:desktop:dmg:arm64": "node scripts/build-desktop-artifact.ts --platform mac --target dmg --arch arm64",
+    "dist:desktop:dmg:x64": "node scripts/build-desktop-artifact.ts --platform mac --target dmg --arch x64",
+    "dist:desktop:linux": "node scripts/build-desktop-artifact.ts --platform linux --target AppImage --arch x64",
+    "dist:desktop:win": "node scripts/build-desktop-artifact.ts --platform win --target nsis --arch x64",
+    "release:smoke": "node scripts/release-smoke.ts",
+    "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules scripts/node_modules apps/*/dist apps/*/dist-electron packages/*/dist .turbo apps/*/.turbo packages/*/.turbo",
+    "sync:vscode-icons": "node scripts/sync-vscode-icons.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "oxfmt": "^0.40.0",
+    "oxlint": "^1.55.0",
+    "turbo": "^2.3.3",
+    "vitest": "catalog:"
+  },
+  "overrides": {
+    "@effect/platform-node-shared": "catalog:",
+    "vite": "^8.0.0"
+  },
+  "engines": {
+    "bun": "^1.3.9",
+    "node": "^24.13.1"
+  },
+  "packageManager": "bun@1.3.9",
+  "msw": {
+    "workerDirectory": [
+      "apps/web/public"
+    ]
+  },
+  "trustedDependencies": [
+    "electron",
+    "node-pty"
+  ]
+}

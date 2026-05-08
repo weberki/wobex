@@ -1,0 +1,68 @@
+services:
+  relay:
+    build:
+      context: ../..
+      dockerfile: deploy/relay/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      RELAY_PUBLIC_URL: ${RELAY_PUBLIC_URL:?set}
+      RELAY_ALLOWED_ORIGINS: ${RELAY_ALLOWED_ORIGINS:?set}
+      RELAY_DATABASE_URL: postgres://relay:${RELAY_POSTGRES_PASSWORD:?set}@postgres:5432/relay
+      RELAY_SESSION_COOKIE_SECRET: ${RELAY_SESSION_COOKIE_SECRET:?set}
+      RELAY_EMAIL_FROM: ${RELAY_EMAIL_FROM:-}
+      RELAY_DEBUG_AUTH_CODES: ${RELAY_DEBUG_AUTH_CODES:-false}
+      RELAY_MAX_BODY_BYTES: ${RELAY_MAX_BODY_BYTES:-1048576}
+      RELAY_PROXY_TIMEOUT_MS: ${RELAY_PROXY_TIMEOUT_MS:-15000}
+    expose:
+      - "8787"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bun",
+          "-e",
+          "const r = await fetch('http://127.0.0.1:8787/healthz'); if (!r.ok) process.exit(1)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: relay
+      POSTGRES_USER: relay
+      POSTGRES_PASSWORD: ${RELAY_POSTGRES_PASSWORD:?set}
+    volumes:
+      - relay-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U relay -d relay"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  caddy:
+    image: caddy:2.10
+    restart: unless-stopped
+    depends_on:
+      relay:
+        condition: service_healthy
+    environment:
+      RELAY_DOMAIN: ${RELAY_DOMAIN:?set}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  relay-postgres:
+  caddy-data:
+  caddy-config:
