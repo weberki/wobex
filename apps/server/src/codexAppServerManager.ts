@@ -402,10 +402,51 @@ function toCodexUserInputAnswers(
   );
 }
 
+function recordFromUnknown(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
+}
+
+function parseCodexJsonStderrLog(line: string): { level: string; message: string } | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(line);
+  } catch {
+    return null;
+  }
+
+  const record = recordFromUnknown(parsed);
+  const rawLevel = typeof record?.level === "string" ? record.level.trim().toUpperCase() : "";
+  if (!rawLevel) {
+    return null;
+  }
+
+  const fields = recordFromUnknown(record?.fields);
+  const fieldMessage = typeof fields?.message === "string" ? fields.message.trim() : "";
+  const fieldError = typeof fields?.error === "string" ? fields.error.trim() : "";
+  const message =
+    fieldMessage && fieldError && fieldError !== fieldMessage
+      ? `${fieldMessage}: ${fieldError}`
+      : fieldMessage || fieldError || line;
+
+  return { level: rawLevel, message };
+}
+
 export function classifyCodexStderrLine(rawLine: string): { message: string } | null {
   const line = rawLine.replaceAll(ANSI_ESCAPE_REGEX, "").trim();
   if (!line) {
     return null;
+  }
+
+  const jsonLog = parseCodexJsonStderrLog(line);
+  if (jsonLog) {
+    if (jsonLog.level !== "ERROR") {
+      return null;
+    }
+    const message = normalizeCodexUserVisibleErrorMessage(jsonLog.message);
+    const isBenignError = BENIGN_ERROR_LOG_SNIPPETS.some(
+      (snippet) => line.includes(snippet) || message.includes(snippet),
+    );
+    return isBenignError ? null : { message };
   }
 
   const match = line.match(CODEX_STDERR_LOG_REGEX);

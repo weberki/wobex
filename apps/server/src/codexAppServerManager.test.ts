@@ -186,6 +186,20 @@ describe("classifyCodexStderrLine", () => {
     expect(classifyCodexStderrLine(line)).toBeNull();
   });
 
+  it("ignores non-error JSON structured codex logs", () => {
+    const line = JSON.stringify({
+      timestamp: "2026-05-08T10:13:59.547263Z",
+      level: "WARN",
+      fields: {
+        message: "failed to warm featured plugin ids cache",
+        error: "remote plugin sync request failed with status 403 Forbidden",
+      },
+      target: "codex_core::plugins::manager",
+    });
+
+    expect(classifyCodexStderrLine(line)).toBeNull();
+  });
+
   it("ignores known benign rollout path errors", () => {
     const line =
       "\u001b[2m2026-02-08T04:24:20.085687Z\u001b[0m \u001b[31mERROR\u001b[0m \u001b[2mcodex_core::rollout::list\u001b[0m: state db missing rollout path for thread 019c3b6c-46b8-7b70-ad23-82f824d161fb";
@@ -196,6 +210,22 @@ describe("classifyCodexStderrLine", () => {
     const line = "2026-02-08T04:24:20.085687Z ERROR codex_core::runtime: unrecoverable failure";
     expect(classifyCodexStderrLine(line)).toEqual({
       message: line,
+    });
+  });
+
+  it("keeps JSON structured errors with a readable message", () => {
+    const line = JSON.stringify({
+      timestamp: "2026-05-08T10:13:59.547263Z",
+      level: "ERROR",
+      fields: {
+        message: "provider failed",
+        error: "unrecoverable failure",
+      },
+      target: "codex_core::runtime",
+    });
+
+    expect(classifyCodexStderrLine(line)).toEqual({
+      message: "provider failed: unrecoverable failure",
     });
   });
 
