@@ -1,0 +1,47 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "HOST",
+    "PORT",
+    "VITE_WS_URL",
+    "VITE_DEV_SERVER_URL",
+    "WOBEX_LOG_WS_EVENTS",
+    "WOBEX_MODE",
+    "WOBEX_PORT",
+    "WOBEX_NO_BROWSER",
+    "WOBEX_HOME",
+    "WOBEX_AUTH_TOKEN",
+    "WOBEX_DESKTOP_WS_URL",
+    "WOBEX_TRACE_MIN_LEVEL",
+    "WOBEX_TRACE_TIMING_ENABLED",
+    "WOBEX_TRACE_FILE",
+    "WOBEX_TRACE_MAX_BYTES",
+    "WOBEX_TRACE_MAX_FILES",
+    "WOBEX_TRACE_BATCH_WINDOW_MS",
+    "WOBEX_OTLP_TRACES_URL",
+    "WOBEX_OTLP_METRICS_URL",
+    "WOBEX_OTLP_EXPORT_INTERVAL_MS",
+    "WOBEX_OTLP_SERVICE_NAME"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "dist-electron/**"]
+    },
+    "dev": {
+      "dependsOn": ["@wobex/contracts#build"],
+      "cache": false,
+      "persistent": true
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "outputs": [],
+      "cache": false
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "outputs": []
+    }
+  }
+}

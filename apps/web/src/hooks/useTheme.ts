@@ -1,0 +1,199 @@
+import { useCallback, useEffect, useSyncExternalStore } from "react";
+
+export type Theme = "light" | "dark" | "system";
+export type Appearance = "default" | "soft-light" | "glass";
+type ThemeSnapshot = {
+  theme: Theme;
+  systemDark: boolean;
+  appearance: Appearance;
+};
+
+const THEME_STORAGE_KEY = "Wobex:theme";
+const APPEARANCE_STORAGE_KEY = "Wobex:appearance";
+const MEDIA_QUERY = "(prefers-color-scheme: dark)";
+const THEME_COLOR_META_NAME = "theme-color";
+const DYNAMIC_THEME_COLOR_SELECTOR = `meta[name="${THEME_COLOR_META_NAME}"][data-dynamic-theme-color="true"]`;
+
+let listeners: Array<() => void> = [];
+let lastSnapshot: ThemeSnapshot | null = null;
+let lastDesktopTheme: Theme | null = null;
+function emitChange() {
+  for (const listener of listeners) listener();
+}
+
+function getSystemDark(): boolean {
+  return window.matchMedia(MEDIA_QUERY).matches;
+}
+
+function getStoredTheme(): Theme {
+  const raw = localStorage.getItem(THEME_STORAGE_KEY);
+  if (raw === "light" || raw === "dark" || raw === "system") return raw;
+  return "system";
+}
+
+function getStoredAppearance(): Appearance {
+  const raw = localStorage.getItem(APPEARANCE_STORAGE_KEY);
+  if (raw === "default" || raw === "soft-light" || raw === "glass") return raw;
+  return "default";
+}
+
+function ensureThemeColorMetaTag(): HTMLMetaElement {
+  let element = document.querySelector<HTMLMetaElement>(DYNAMIC_THEME_COLOR_SELECTOR);
+  if (element) {
+    return element;
+  }
+
+  element = document.createElement("meta");
+  element.name = THEME_COLOR_META_NAME;
+  element.setAttribute("data-dynamic-theme-color", "true");
+  document.head.append(element);
+  return element;
+}
+
+function normalizeThemeColor(value: string | null | undefined): string | null {
+  const normalizedValue = value?.trim().toLowerCase();
+  if (
+    !normalizedValue ||
+    normalizedValue === "transparent" ||
+    normalizedValue === "rgba(0, 0, 0, 0)" ||
+    normalizedValue === "rgba(0 0 0 / 0)"
+  ) {
+    return null;
+  }
+
+  return value?.trim() ?? null;
+}
+
+function resolveBrowserChromeSurface(): HTMLElement {
+  return (
+    document.querySelector<HTMLElement>("main[data-slot='sidebar-inset']") ??
+    document.querySelector<HTMLElement>("[data-slot='sidebar-inner']") ??
+    document.body
+  );
+}
+
+export function syncBrowserChromeTheme() {
+  if (typeof document === "undefined" || typeof getComputedStyle === "undefined") return;
+  const surfaceColor = normalizeThemeColor(
+    getComputedStyle(resolveBrowserChromeSurface()).backgroundColor,
+  );
+  const fallbackColor = normalizeThemeColor(getComputedStyle(document.body).backgroundColor);
+  const backgroundColor = surfaceColor ?? fallbackColor;
+  if (!backgroundColor) return;
+
+  document.documentElement.style.backgroundColor = backgroundColor;
+  document.body.style.backgroundColor = backgroundColor;
+  ensureThemeColorMetaTag().setAttribute("content", backgroundColor);
+}
+
+function applyThemeState(theme: Theme, appearance: Appearance, suppressTransitions = false) {
+  if (typeof document === "undefined") return;
+  if (suppressTransitions) {
+    document.documentElement.classList.add("no-transitions");
+  }
+  const isDark = theme === "dark" || (theme === "system" && getSystemDark());
+  document.documentElement.classList.toggle("dark", isDark);
+  document.documentElement.dataset.appearance = appearance;
+  syncBrowserChromeTheme();
+  syncDesktopTheme(theme);
+  if (suppressTransitions) {
+    // Force a reflow so the no-transitions class takes effect before removal
+    // oxlint-disable-next-line no-unused-expressions
+    document.documentElement.offsetHeight;
+    requestAnimationFrame(() => {
+      document.documentElement.classList.remove("no-transitions");
+    });
+  }
+}
+
+function syncDesktopTheme(theme: Theme) {
+  const bridge = window.desktopBridge;
+  if (!bridge || lastDesktopTheme === theme) {
+    return;
+  }
+
+  lastDesktopTheme = theme;
+  void bridge.setTheme(theme).catch(() => {
+    if (lastDesktopTheme === theme) {
+      lastDesktopTheme = null;
+    }
+  });
+}
+
+// Apply immediately on module load to prevent flash
+applyThemeState(getStoredTheme(), getStoredAppearance());
+
+function getSnapshot(): ThemeSnapshot {
+  const theme = getStoredTheme();
+  const appearance = getStoredAppearance();
+  const systemDark = theme === "system" ? getSystemDark() : false;
+
+  if (
+    lastSnapshot &&
+    lastSnapshot.theme === theme &&
+    lastSnapshot.systemDark === systemDark &&
+    lastSnapshot.appearance === appearance
+  ) {
+    return lastSnapshot;
+  }
+
+  lastSnapshot = { theme, systemDark, appearance };
+  return lastSnapshot;
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.push(listener);
+
+  // Listen for system preference changes
+  const mq = window.matchMedia(MEDIA_QUERY);
+  const handleChange = () => {
+    if (getStoredTheme() === "system") {
+      applyThemeState("system", getStoredAppearance(), true);
+    }
+    emitChange();
+  };
+  mq.addEventListener("change", handleChange);
+
+  // Listen for storage changes from other tabs
+  const handleStorage = (e: StorageEvent) => {
+    if (e.key === THEME_STORAGE_KEY || e.key === APPEARANCE_STORAGE_KEY) {
+      applyThemeState(getStoredTheme(), getStoredAppearance(), true);
+      emitChange();
+    }
+  };
+  window.addEventListener("storage", handleStorage);
+
+  return () => {
+    listeners = listeners.filter((l) => l !== listener);
+    mq.removeEventListener("change", handleChange);
+    window.removeEventListener("storage", handleStorage);
+  };
+}
+
+export function useTheme() {
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot);
+  const theme = snapshot.theme;
+  const appearance = snapshot.appearance;
+
+  const resolvedTheme: "light" | "dark" =
+    theme === "system" ? (snapshot.systemDark ? "dark" : "light") : theme;
+
+  const setTheme = useCallback((next: Theme) => {
+    localStorage.setItem(THEME_STORAGE_KEY, next);
+    applyThemeState(next, getStoredAppearance(), true);
+    emitChange();
+  }, []);
+
+  const setAppearance = useCallback((next: Appearance) => {
+    localStorage.setItem(APPEARANCE_STORAGE_KEY, next);
+    applyThemeState(getStoredTheme(), next, true);
+    emitChange();
+  }, []);
+
+  // Keep DOM in sync on mount/change
+  useEffect(() => {
+    applyThemeState(theme, appearance);
+  }, [appearance, theme]);
+
+  return { theme, setTheme, resolvedTheme, appearance, setAppearance } as const;
+}

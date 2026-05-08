@@ -1,0 +1,28 @@
+{
+  "name": "@wobex/relay",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "start": "bun run src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@simplewebauthn/server": "^13.3.0",
+    "@wobex/contracts": "workspace:*",
+    "@wobex/shared": "workspace:*",
+    "effect": "catalog:",
+    "nodemailer": "^7.0.3",
+    "postgres": "^3.4.9",
+    "ws": "^8.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/nodemailer": "^7.0.3",
+    "@types/ws": "^8.18.1",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

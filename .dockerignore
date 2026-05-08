@@ -1,0 +1,15 @@
+.git
+.turbo
+.DS_Store
+node_modules
+apps/*/node_modules
+packages/*/node_modules
+scripts/node_modules
+apps/*/dist
+apps/*/dist-electron
+packages/*/dist
+coverage
+*.log
+.env
+.env.*
+!.env.example
