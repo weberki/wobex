@@ -229,8 +229,26 @@ export interface DesktopServerExposureState {
   advertisedHost: string | null;
 }
 
+export type DesktopRendererDiagnosticLevel = "debug" | "info" | "warning" | "error";
+
+export type DesktopRendererDiagnosticSource =
+  | "chromium-console"
+  | "window-error"
+  | "unhandled-rejection";
+
+export interface DesktopRendererDiagnostic {
+  level: DesktopRendererDiagnosticLevel;
+  source: DesktopRendererDiagnosticSource;
+  message: string;
+  url?: string;
+  line?: number;
+  column?: number;
+  stack?: string;
+}
+
 export interface DesktopBridge {
   getLocalEnvironmentBootstrap: () => DesktopEnvironmentBootstrap | null;
+  reportRendererDiagnostic?: (input: DesktopRendererDiagnostic) => Promise<void>;
   getClientSettings: () => Promise<ClientSettings | null>;
   setClientSettings: (settings: ClientSettings) => Promise<void>;
   getSavedEnvironmentRegistry: () => Promise<readonly PersistedSavedEnvironmentRecord[]>;

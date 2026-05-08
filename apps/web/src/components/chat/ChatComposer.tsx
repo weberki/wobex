@@ -1868,7 +1868,7 @@ export const ChatComposer = memo(
         >
           <div
             className={cn(
-              "overflow-hidden rounded-[16px] border border-border/65 bg-background transition-colors duration-200 has-focus-visible:border-ring/45",
+              "chat-composer-surface overflow-hidden rounded-2xl border bg-background transition-colors duration-200 has-focus-visible:border-[color:var(--app-composer-focus-border,var(--ring))]",
               isDragOverComposer ? "border-primary/70 bg-accent/30" : "",
               composerProviderState.composerSurfaceClassName,
             )}
@@ -2059,7 +2059,7 @@ export const ChatComposer = memo(
                 ref={composerFooterRef}
                 data-chat-composer-footer="true"
                 data-chat-composer-footer-compact={isComposerFooterCompact ? "true" : "false"}
-                className="flex items-center justify-between gap-2 border-t border-border/60 bg-muted/10 px-2 py-1.5"
+                className="flex items-center justify-between gap-2 border-t border-[color:var(--color-border-light,var(--border))] bg-muted/10 px-2.5 py-1.5"
               >
                 {/* Left side: extras menu, model picker, trait chips */}
                 <div

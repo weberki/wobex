@@ -73,6 +73,11 @@ import {
 import { syncShellEnvironment } from "./syncShellEnvironment";
 import { getAutoUpdateDisabledReason, shouldBroadcastDownloadProgress } from "./updateState";
 import {
+  formatRendererDiagnosticLine,
+  normalizeRendererDiagnostic,
+  toRendererDiagnosticLevel,
+} from "./rendererDiagnostics";
+import {
   createInitialDesktopUpdateState,
   reduceDesktopUpdateStateOnCheckFailure,
   reduceDesktopUpdateStateOnCheckStart,
@@ -99,6 +104,7 @@ const UPDATE_GET_STATE_CHANNEL = "desktop:update-get-state";
 const UPDATE_DOWNLOAD_CHANNEL = "desktop:update-download";
 const UPDATE_INSTALL_CHANNEL = "desktop:update-install";
 const UPDATE_CHECK_CHANNEL = "desktop:update-check";
+const RENDERER_DIAGNOSTIC_CHANNEL = "desktop:renderer-diagnostic";
 const GET_LOCAL_ENVIRONMENT_BOOTSTRAP_CHANNEL = "desktop:get-local-environment-bootstrap";
 const GET_CLIENT_SETTINGS_CHANNEL = "desktop:get-client-settings";
 const SET_CLIENT_SETTINGS_CHANNEL = "desktop:set-client-settings";
@@ -160,6 +166,7 @@ let desktopProtocolRegistered = false;
 let aboutCommitHashCache: string | null | undefined;
 let desktopLogSink: RotatingFileSink | null = null;
 let backendLogSink: RotatingFileSink | null = null;
+let rendererLogSink: RotatingFileSink | null = null;
 let restoreStdIoCapture: (() => void) | null = null;
 let backendObservabilitySettings = readPersistedBackendObservabilitySettings();
 let desktopSettings = readDesktopSettings(DESKTOP_SETTINGS_PATH);
@@ -363,6 +370,26 @@ function logDesktopRuntimeWarning(message: string): void {
   console.warn(`[desktop] ${message}`);
 }
 
+function writeRendererDiagnostic(input: unknown, options?: { windowId?: number }): void {
+  const diagnostic = normalizeRendererDiagnostic(input);
+  if (!diagnostic) return;
+
+  rendererLogSink?.write(
+    formatRendererDiagnosticLine(diagnostic, {
+      appRunId: APP_RUN_ID,
+      ...(options?.windowId !== undefined ? { windowId: options.windowId } : {}),
+    }),
+  );
+
+  if (diagnostic.level === "warning" || diagnostic.level === "error") {
+    writeDesktopLogHeader(
+      `renderer ${diagnostic.level} source=${diagnostic.source} message=${sanitizeLogValue(
+        diagnostic.message,
+      ).slice(0, 500)}`,
+    );
+  }
+}
+
 function writeBackendSessionBoundary(phase: "START" | "END", details: string): void {
   if (!backendLogSink) return;
   const normalizedDetails = sanitizeLogValue(details);
@@ -447,7 +474,7 @@ function writeDesktopStreamChunk(
 }
 
 function installStdIoCapture(): void {
-  if (!app.isPackaged || desktopLogSink === null || restoreStdIoCapture !== null) {
+  if (desktopLogSink === null || restoreStdIoCapture !== null) {
     return;
   }
 
@@ -485,8 +512,7 @@ function installStdIoCapture(): void {
   };
 }
 
-function initializePackagedLogging(): void {
-  if (!app.isPackaged) return;
+function initializeRuntimeLogging(): void {
   try {
     desktopLogSink = new RotatingFileSink({
       filePath: Path.join(LOG_DIR, "desktop-main.log"),
@@ -495,6 +521,11 @@ function initializePackagedLogging(): void {
     });
     backendLogSink = new RotatingFileSink({
       filePath: Path.join(LOG_DIR, "server-child.log"),
+      maxBytes: LOG_FILE_MAX_BYTES,
+      maxFiles: LOG_FILE_MAX_FILES,
+    });
+    rendererLogSink = new RotatingFileSink({
+      filePath: Path.join(LOG_DIR, "renderer.ndjson"),
       maxBytes: LOG_FILE_MAX_BYTES,
       maxFiles: LOG_FILE_MAX_FILES,
     });
@@ -507,7 +538,7 @@ function initializePackagedLogging(): void {
 }
 
 function captureBackendOutput(child: ChildProcess.ChildProcess): void {
-  if (!app.isPackaged || backendLogSink === null) return;
+  if (backendLogSink === null) return;
   const writeChunk = (chunk: unknown): void => {
     if (!backendLogSink) return;
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk), "utf8");
@@ -517,7 +548,7 @@ function captureBackendOutput(child: ChildProcess.ChildProcess): void {
   child.stderr?.on("data", writeChunk);
 }
 
-initializePackagedLogging();
+initializeRuntimeLogging();
 
 if (process.platform === "linux") {
   app.commandLine.appendSwitch("class", LINUX_WM_CLASS);
@@ -1577,6 +1608,13 @@ function registerIpcHandlers(): void {
     return nextState;
   });
 
+  ipcMain.removeHandler(RENDERER_DIAGNOSTIC_CHANNEL);
+  ipcMain.handle(RENDERER_DIAGNOSTIC_CHANNEL, async (event, input: unknown) => {
+    writeRendererDiagnostic(input, {
+      windowId: BrowserWindow.fromWebContents(event.sender)?.id ?? event.sender.id,
+    });
+  });
+
   ipcMain.removeHandler(PICK_FOLDER_CHANNEL);
   ipcMain.handle(PICK_FOLDER_CHANNEL, async () => {
     const owner = BrowserWindow.getFocusedWindow() ?? mainWindow;
@@ -1874,6 +1912,47 @@ function createWindow(): BrowserWindow {
       void shell.openExternal(externalUrl);
     }
     return { action: "deny" };
+  });
+
+  window.webContents.on("console-message", (event) => {
+    const details = event as unknown as Record<string, unknown>;
+    const message = typeof details.message === "string" ? details.message : "";
+    const sourceId = typeof details.sourceId === "string" ? details.sourceId : "";
+    const line = typeof details.lineNumber === "number" ? details.lineNumber : undefined;
+
+    writeRendererDiagnostic(
+      {
+        level: toRendererDiagnosticLevel(details.level),
+        source: "chromium-console",
+        message,
+        ...(sourceId ? { url: sourceId } : {}),
+        ...(typeof line === "number" && Number.isFinite(line) && line > 0 ? { line } : {}),
+      },
+      { windowId: window.id },
+    );
+  });
+  window.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL) => {
+    writeRendererDiagnostic(
+      {
+        level: "error",
+        source: "chromium-console",
+        message: `did-fail-load ${errorCode}: ${errorDescription}`,
+        ...(validatedURL ? { url: validatedURL } : {}),
+      },
+      { windowId: window.id },
+    );
+  });
+  window.webContents.on("preload-error", (_event, preloadPath, error) => {
+    writeRendererDiagnostic(
+      {
+        level: "error",
+        source: "chromium-console",
+        message: `preload-error ${formatErrorMessage(error)}`,
+        url: preloadPath,
+        ...(error.stack ? { stack: error.stack } : {}),
+      },
+      { windowId: window.id },
+    );
   });
 
   window.on("page-title-updated", (event) => {

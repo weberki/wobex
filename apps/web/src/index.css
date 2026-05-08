@@ -58,6 +58,45 @@
   }
 }
 
+@layer components {
+  .chat-composer-surface {
+    background: var(--composer-surface, var(--background));
+    border-color: var(--color-border-light, var(--border));
+    box-shadow:
+      0 18px 44px rgb(15 23 42 / 0.08),
+      0 1px 0 rgb(255 255 255 / 0.42) inset;
+  }
+
+  .chat-composer-surface:focus-within {
+    border-color: var(--app-composer-focus-border, var(--ring));
+    box-shadow:
+      0 22px 56px rgb(15 23 42 / 0.12),
+      0 0 0 1px color-mix(in srgb, var(--app-composer-focus-border, var(--ring)) 22%, transparent);
+  }
+
+  .chat-pane-enter {
+    animation: chat-pane-enter 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+@keyframes chat-pane-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-pane-enter {
+    animation: none;
+  }
+}
+
 /* Suppress all transitions during theme changes */
 .no-transitions,
 .no-transitions *,
@@ -88,6 +127,11 @@
   --app-font-size-chat-code: 11px;
   --app-font-size-chat-meta: 9px;
   --app-font-size-chat-tiny: 8px;
+  --color-border-light: --alpha(var(--color-black) / 5%);
+  --color-background-button-secondary-hover: --alpha(var(--color-black) / 7%);
+  --color-text-foreground-secondary: color-mix(in srgb, var(--color-neutral-500) 86%, black);
+  --composer-surface: #fcfcfc;
+  --app-composer-focus-border: #526fff;
   --background: var(--color-white);
   --app-chrome-background: var(--background);
   --foreground: var(--color-neutral-800);
@@ -143,6 +187,11 @@
     --success-foreground: var(--color-emerald-400);
     --warning: var(--color-amber-500);
     --warning-foreground: var(--color-amber-400);
+    --color-border-light: --alpha(var(--color-white) / 5%);
+    --color-background-button-secondary-hover: --alpha(var(--color-white) / 8%);
+    --color-text-foreground-secondary: color-mix(in srgb, var(--color-neutral-400) 90%, white);
+    --composer-surface: #0e0e0e;
+    --app-composer-focus-border: #6073cc;
   }
 }
 

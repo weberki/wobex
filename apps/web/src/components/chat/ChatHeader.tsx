@@ -1,4 +1,5 @@
 import {
+  PROVIDER_DISPLAY_NAMES,
   type EnvironmentId,
   type EditorId,
   type ProviderKind,
@@ -11,9 +12,12 @@ import { memo } from "react";
 import GitActionsControl from "../GitActionsControl";
 import {
   BlocksIcon,
+  BotIcon,
+  Code2Icon,
   DiffIcon,
   PanelRightIcon,
   SlidersHorizontalIcon,
+  SparklesIcon,
   TerminalSquareIcon,
 } from "lucide-react";
 import { Badge } from "../ui/badge";
@@ -57,6 +61,27 @@ interface ChatHeaderProps {
   onToggleWorkspaceWindow: () => void;
 }
 
+function ProviderGlyph(props: { provider: ProviderKind | null }) {
+  const iconClassName = "size-3.5";
+  const Icon =
+    props.provider === "claudeAgent"
+      ? SparklesIcon
+      : props.provider === "opencode"
+        ? Code2Icon
+        : props.provider === "droid"
+          ? BotIcon
+          : BotIcon;
+
+  return (
+    <span
+      className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-border/55 bg-secondary/75 text-muted-foreground shadow-sm"
+      aria-hidden="true"
+    >
+      <Icon className={iconClassName} />
+    </span>
+  );
+}
+
 export const ChatHeader = memo(function ChatHeader({
   activeThreadEnvironmentId,
   activeThreadId,
@@ -88,28 +113,39 @@ export const ChatHeader = memo(function ChatHeader({
   onToggleDiff,
   onToggleWorkspaceWindow,
 }: ChatHeaderProps) {
+  const providerLabel = provider ? (PROVIDER_DISPLAY_NAMES[provider] ?? provider) : "Provider";
+
   return (
     <div className="@container/header-actions flex min-w-0 flex-1 items-center gap-2">
       <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden sm:gap-3">
         <SidebarTrigger className="size-7 shrink-0 md:hidden" />
-        <h2
-          className="min-w-0 shrink truncate text-sm font-medium text-foreground"
-          title={activeThreadTitle}
-        >
-          {activeThreadTitle}
-        </h2>
-        {activeProjectName && (
-          <Badge variant="outline" className="min-w-0 shrink overflow-hidden">
-            <span className="min-w-0 truncate">{activeProjectName}</span>
-          </Badge>
-        )}
-        {activeProjectName && !isGitRepo && (
-          <Badge variant="outline" className="shrink-0 text-[10px] text-amber-700">
-            No Git
-          </Badge>
-        )}
+        <ProviderGlyph provider={provider} />
+        <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 overflow-hidden">
+          <div className="flex min-w-0 items-center gap-2">
+            <h2
+              className="max-w-[clamp(12rem,42vw,36rem)] min-w-0 truncate text-sm font-medium text-foreground"
+              title={activeThreadTitle}
+            >
+              {activeThreadTitle}
+            </h2>
+            {activeProjectName && !isGitRepo && (
+              <Badge variant="outline" className="shrink-0 text-[10px] text-amber-700">
+                No Git
+              </Badge>
+            )}
+          </div>
+          <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground/70">
+            <span className="shrink-0">{providerLabel}</span>
+            {activeProjectName ? (
+              <>
+                <span className="text-muted-foreground/35">/</span>
+                <span className="min-w-0 truncate">{activeProjectName}</span>
+              </>
+            ) : null}
+          </div>
+        </div>
       </div>
-      <div className="flex shrink-0 items-center justify-end gap-2 @3xl/header-actions:gap-3">
+      <div className="flex shrink-0 items-center justify-end gap-1.5 rounded-lg border border-border/45 bg-background/45 px-1.5 py-1 shadow-sm @3xl/header-actions:gap-2">
         {activeProjectScripts && (
           <ProjectScriptsControl
             scripts={activeProjectScripts}

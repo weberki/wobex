@@ -10,9 +10,12 @@ import "./index.css";
 import { isElectron } from "./env";
 import { getRouter } from "./router";
 import { APP_DISPLAY_NAME } from "./branding";
+import { installRendererDiagnostics } from "./rendererDiagnostics";
 
 // Electron loads the app from a file-backed shell, so hash history avoids path resolution issues.
 const history = isElectron ? createHashHistory() : createBrowserHistory();
+
+installRendererDiagnostics();
 
 const router = getRouter(history);
 

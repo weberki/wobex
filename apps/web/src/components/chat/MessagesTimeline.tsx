@@ -389,7 +389,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
           const canRevertAgentWork = revertTurnCountByUserMessageId.has(row.message.id);
           return (
             <div className="flex justify-end">
-              <div className="group relative max-w-[80%] rounded-2xl rounded-br-sm border border-border bg-secondary px-4 py-3">
+              <div className="group relative max-w-[80%] rounded-lg border border-border/35 bg-secondary/80 px-3.5 py-2.5 shadow-sm">
                 {userImages.length > 0 && (
                   <div className="mb-2 grid max-w-[420px] grid-cols-2 gap-2">
                     {userImages.map(
@@ -616,7 +616,7 @@ const ChangedFilesCard = memo(function ChangedFilesCard(props: {
   const changedFileCountLabel = String(checkpointFiles.length);
 
   return (
-    <div className="mt-2 rounded-lg border border-border/80 bg-card/45 p-2.5">
+    <div className="mt-2 rounded-lg border border-[color:var(--color-border-light,var(--border))] bg-[color:var(--composer-surface,var(--card))] p-2.5 shadow-sm">
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground/65">
           <span>Changed files ({changedFileCountLabel})</span>
