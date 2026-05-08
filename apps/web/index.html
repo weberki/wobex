@@ -6,8 +6,9 @@
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#161616" media="(prefers-color-scheme: dark)" />
     <meta name="theme-color" content="#161616" />
-    <link rel="icon" type="image/svg+xml" href="/wobex-mark.svg" />
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/png" href="/favicon-32x32.png" sizes="32x32" />
+    <link rel="icon" type="image/png" href="/favicon-16x16.png" sizes="16x16" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <script>
       (() => {
@@ -98,7 +99,8 @@
       #boot-shell-logo {
         width: 64px;
         height: 64px;
-        object-fit: contain;
+        border-radius: 14px;
+        object-fit: cover;
       }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -113,7 +115,7 @@
     <div id="root">
       <div id="boot-shell">
         <div id="boot-shell-card" aria-label="Wobex splash screen">
-          <img id="boot-shell-logo" src="/wobex-mark.svg" alt="Wobex" />
+          <img id="boot-shell-logo" src="/wobex-mark.png" alt="Wobex" />
         </div>
       </div>
     </div>

@@ -2113,7 +2113,12 @@ const SidebarProjectListRow = memo(function SidebarProjectListRow(props: Sidebar
 function BrandWordmark() {
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <img alt="" aria-hidden="true" className="size-5 shrink-0 rounded-md" src="/wobex-mark.svg" />
+      <img
+        alt=""
+        aria-hidden="true"
+        className="size-5 shrink-0 rounded-md object-cover"
+        src="/wobex-mark.png"
+      />
       <span className="truncate text-sm font-semibold tracking-tight text-foreground">
         {APP_BASE_NAME}
       </span>
