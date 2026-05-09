@@ -85,6 +85,8 @@ import {
   formatProviderUsageResults,
   withUsageSpinner,
 } from "./usageCli";
+import { runCodexImagegenDevTool } from "./devTools/codexImagegen";
+import { runOracleDevTool } from "./devTools/oracle";
 import { WorkspacePaths } from "./workspace/Services/WorkspacePaths";
 import { WorkspacePathsLive } from "./workspace/Layers/WorkspacePaths";
 
@@ -1509,6 +1511,142 @@ const usageCommand = Command.make("usage").pipe(
   ]),
 );
 
+const devImagegenCommand = Command.make("imagegen", {
+  prompt: Flag.string("prompt").pipe(
+    Flag.withDescription("Image prompt to send to Codex image generation."),
+  ),
+  outPath: Flag.string("out").pipe(
+    Flag.withDescription("Output image path. Multiple images add numeric suffixes."),
+    Flag.withAlias("output"),
+  ),
+  count: Flag.integer("count").pipe(
+    Flag.withSchema(Schema.Int.check(Schema.isGreaterThanOrEqualTo(1))),
+    Flag.withDescription("Number of images to copy from the generated batch."),
+    Flag.withDefault(1),
+  ),
+  size: Flag.string("size").pipe(
+    Flag.withDescription("Optional image size hint, for example 1024x1024."),
+    Flag.optional,
+  ),
+  quality: Flag.string("quality").pipe(
+    Flag.withDescription("Optional image quality hint."),
+    Flag.optional,
+  ),
+  outputFormat: Flag.string("format").pipe(
+    Flag.withDescription("Optional preferred output format, for example png or webp."),
+    Flag.optional,
+  ),
+  model: Flag.string("model").pipe(
+    Flag.withDescription("Optional Codex model override."),
+    Flag.optional,
+  ),
+  timeout: Flag.string("timeout").pipe(
+    Flag.withSchema(DurationFromString),
+    Flag.withDescription("Maximum wait time for Codex, for example 10m or 600s."),
+    Flag.withDefault(Duration.minutes(10)),
+  ),
+  codexBinary: Flag.string("codex-binary").pipe(
+    Flag.withDescription("Codex CLI binary path."),
+    Flag.withDefault("codex"),
+  ),
+  codexHome: Flag.string("codex-home").pipe(
+    Flag.withDescription("Codex home directory. Defaults to ~/.codex."),
+    Flag.optional,
+  ),
+  cwd: Flag.string("cwd").pipe(
+    Flag.withDescription("Working directory for the temporary Codex app-server session."),
+    Flag.optional,
+  ),
+}).pipe(
+  Command.withDescription("Generate raster images through a temporary Codex app-server session."),
+  Command.withHandler((flags) =>
+    Effect.gen(function* () {
+      const result = yield* Effect.promise(() =>
+        runCodexImagegenDevTool({
+          prompt: flags.prompt,
+          outPath: flags.outPath,
+          count: flags.count,
+          timeoutMs: Duration.toMillis(flags.timeout),
+          codexBinary: flags.codexBinary,
+          ...(Option.isSome(flags.size) ? { size: flags.size.value } : {}),
+          ...(Option.isSome(flags.quality) ? { quality: flags.quality.value } : {}),
+          ...(Option.isSome(flags.outputFormat) ? { outputFormat: flags.outputFormat.value } : {}),
+          ...(Option.isSome(flags.model) ? { model: flags.model.value } : {}),
+          ...(Option.isSome(flags.codexHome) ? { codexHome: flags.codexHome.value } : {}),
+          ...(Option.isSome(flags.cwd) ? { cwd: flags.cwd.value } : {}),
+        }),
+      );
+      yield* Console.log(
+        [
+          `Codex image generation completed for ${result.threadId}.`,
+          ...result.outputFiles.map((file) => `Wrote ${file}`),
+        ].join("\n"),
+      );
+    }),
+  ),
+);
+
+const devOracleCommand = Command.make("oracle", {
+  prompt: Flag.string("prompt").pipe(Flag.withDescription("Question or task to send to Oracle.")),
+  file: Flag.string("file").pipe(
+    Flag.withDescription("File or glob to attach. May be passed multiple times."),
+    Flag.atMost(100),
+  ),
+  outputPath: Flag.string("out").pipe(
+    Flag.withDescription("Optional markdown output file for Oracle's answer."),
+    Flag.withAlias("output"),
+    Flag.optional,
+  ),
+  model: Flag.string("model").pipe(
+    Flag.withDescription("Browser model to select in ChatGPT."),
+    Flag.withDefault("gpt-5.5-pro"),
+  ),
+  thinkingTime: Flag.string("thinking-time").pipe(
+    Flag.withDescription("Oracle browser thinking-time setting."),
+    Flag.withDefault("heavy"),
+  ),
+  browserModelStrategy: Flag.string("browser-model-strategy").pipe(
+    Flag.withDescription("Oracle browser model selection strategy."),
+    Flag.withDefault("select"),
+  ),
+  browserTimeout: Flag.string("browser-timeout").pipe(
+    Flag.withDescription("Optional Oracle browser timeout, for example 90s."),
+    Flag.optional,
+  ),
+  dryRun: Flag.boolean("dry-run").pipe(
+    Flag.withDescription("Print Oracle's planned browser action without sending the prompt."),
+    Flag.withDefault(false),
+  ),
+  oracleCommand: Flag.string("oracle-command").pipe(
+    Flag.withDescription("Oracle executable. Defaults to npx -y @steipete/oracle."),
+    Flag.optional,
+  ),
+}).pipe(
+  Command.withDescription("Run Oracle in browser mode against GPT-5.5 Pro."),
+  Command.withHandler((flags) =>
+    Effect.promise(() =>
+      runOracleDevTool({
+        prompt: flags.prompt,
+        files: flags.file,
+        model: flags.model,
+        thinkingTime: flags.thinkingTime,
+        browserModelStrategy: flags.browserModelStrategy,
+        dryRun: flags.dryRun,
+        ...(Option.isSome(flags.outputPath) ? { outputPath: flags.outputPath.value } : {}),
+        ...(Option.isSome(flags.browserTimeout)
+          ? { browserTimeout: flags.browserTimeout.value }
+          : {}),
+        ...(Option.isSome(flags.oracleCommand) ? { oracleCommand: flags.oracleCommand.value } : {}),
+      }),
+    ),
+  ),
+);
+
+const devCommand = Command.make("dev").pipe(
+  Command.withDescription("Run local development helper tools."),
+  Command.withSubcommands([devImagegenCommand, devOracleCommand]),
+);
+
 const runServerCommand = (
   flags: CliServerFlags,
   options?: {
@@ -1550,6 +1688,7 @@ export const makeCli = (commandName = "wobex") =>
       projectCommand,
       cloudCommand,
       usageCommand,
+      devCommand,
     ]),
   );
 

@@ -212,6 +212,14 @@ it.layer(NodeServices.layer)("cli log-level parsing", (it) => {
     runCliWithRuntime(["--no-log-websocket-events", "--version"]),
   );
 
+  it.effect("shows dev imagegen help without launching Codex", () =>
+    runCliWithRuntime(["dev", "imagegen", "--help"]),
+  );
+
+  it.effect("shows dev oracle help without launching Oracle", () =>
+    runCliWithRuntime(["dev", "oracle", "--help"]),
+  );
+
   it.effect("rejects invalid log-level casing before launching the server", () =>
     Effect.gen(function* () {
       const error = yield* runCliWithRuntime(["--log-level", "Debug"]).pipe(Effect.flip);
