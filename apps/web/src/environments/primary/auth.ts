@@ -50,8 +50,10 @@ type ServerAuthGateState =
     };
 
 let bootstrapPromise: Promise<ServerAuthGateState> | null = null;
+let cachedAuthenticatedGateState: { expiresAt: number; state: ServerAuthGateState } | null = null;
 const AUTH_SESSION_ESTABLISH_TIMEOUT_MS = 2_000;
 const AUTH_SESSION_ESTABLISH_STEP_MS = 100;
+const AUTH_GATE_AUTHENTICATED_CACHE_MS = 30_000;
 
 export function peekPairingTokenFromUrl(): string | null {
   return getPairingTokenFromUrl(new URL(window.location.href));
@@ -198,7 +200,7 @@ async function bootstrapServerAuth(): Promise<ServerAuthGateState> {
   const bootstrapCredential = getDesktopBootstrapCredential();
   const currentSession = await fetchSessionState();
   if (currentSession.authenticated) {
-    return { status: "authenticated" };
+    return rememberAuthenticatedGateState();
   }
 
   if (!bootstrapCredential) {
@@ -211,7 +213,7 @@ async function bootstrapServerAuth(): Promise<ServerAuthGateState> {
   try {
     await exchangeBootstrapCredential(bootstrapCredential);
     await waitForAuthenticatedSessionAfterBootstrap();
-    return { status: "authenticated" };
+    return rememberAuthenticatedGateState();
   } catch (error) {
     return {
       status: "requires-auth",
@@ -229,6 +231,7 @@ export async function submitServerAuthCredential(credential: string): Promise<vo
 
   await exchangeBootstrapCredential(trimmedCredential);
   bootstrapPromise = null;
+  cachedAuthenticatedGateState = null;
   stripPairingTokenFromUrl();
 }
 
@@ -348,6 +351,11 @@ export async function revokeOtherServerClientSessions(): Promise<number> {
 }
 
 export async function resolveInitialServerAuthGateState(): Promise<ServerAuthGateState> {
+  const cachedGateState = readCachedAuthenticatedGateState();
+  if (cachedGateState) {
+    return cachedGateState;
+  }
+
   if (bootstrapPromise) {
     return bootstrapPromise;
   }
@@ -361,6 +369,29 @@ export async function resolveInitialServerAuthGateState(): Promise<ServerAuthGat
   });
 }
 
+function rememberAuthenticatedGateState(): ServerAuthGateState {
+  const state: ServerAuthGateState = { status: "authenticated" };
+  cachedAuthenticatedGateState = {
+    state,
+    expiresAt: Date.now() + AUTH_GATE_AUTHENTICATED_CACHE_MS,
+  };
+  return state;
+}
+
+function readCachedAuthenticatedGateState(): ServerAuthGateState | null {
+  if (!cachedAuthenticatedGateState) {
+    return null;
+  }
+
+  if (Date.now() >= cachedAuthenticatedGateState.expiresAt) {
+    cachedAuthenticatedGateState = null;
+    return null;
+  }
+
+  return cachedAuthenticatedGateState.state;
+}
+
 export function __resetServerAuthBootstrapForTests() {
   bootstrapPromise = null;
+  cachedAuthenticatedGateState = null;
 }
