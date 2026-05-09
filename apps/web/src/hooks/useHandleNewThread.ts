@@ -10,7 +10,7 @@ import {
 } from "../composerDraftStore";
 import { newDraftId, newThreadId } from "../lib/utils";
 import { orderItemsByPreferredIds } from "../components/Sidebar.logic";
-import { deriveLogicalProjectKey } from "../logicalProject";
+import { createLogicalProjectKeyResolver } from "../logicalProject";
 import { selectProjectsAcrossEnvironments, useStore } from "../store";
 import { createThreadSelectorByRef } from "../storeSelectors";
 import {
@@ -22,6 +22,10 @@ import { useUiStateStore } from "../uiStateStore";
 
 function useNewThreadState() {
   const projects = useStore(useShallow((store) => selectProjectsAcrossEnvironments(store)));
+  const resolveLogicalProjectKey = useMemo(
+    () => createLogicalProjectKeyResolver(projects),
+    [projects],
+  );
   const router = useRouter();
   const getCurrentRouteTarget = useCallback(() => {
     const currentRouteParams = router.state.matches[router.state.matches.length - 1]?.params ?? {};
@@ -52,7 +56,7 @@ function useNewThreadState() {
           candidate.environmentId === projectRef.environmentId,
       );
       const logicalProjectKey = project
-        ? deriveLogicalProjectKey(project)
+        ? resolveLogicalProjectKey(project)
         : scopedProjectKey(projectRef);
       const hasBranchOption = options?.branch !== undefined;
       const hasWorktreePathOption = options?.worktreePath !== undefined;
@@ -132,7 +136,7 @@ function useNewThreadState() {
         });
       })();
     },
-    [getCurrentRouteTarget, router, projects],
+    [getCurrentRouteTarget, router, projects, resolveLogicalProjectKey],
   );
 }
 

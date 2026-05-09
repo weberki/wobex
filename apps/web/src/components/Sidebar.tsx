@@ -146,7 +146,7 @@ import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { readEnvironmentApi } from "../environmentApi";
 import { useSettings, useUpdateSettings } from "~/hooks/useSettings";
 import { useServerKeybindings } from "../rpc/serverState";
-import { deriveLogicalProjectKey } from "../logicalProject";
+import { createLogicalProjectKeyResolver } from "../logicalProject";
 import {
   useSavedEnvironmentRegistryStore,
   useSavedEnvironmentRuntimeStore,
@@ -2730,6 +2730,10 @@ export default function Sidebar() {
       getId: (project) => scopedProjectKey(scopeProjectRef(project.environmentId, project.id)),
     });
   }, [projectOrder, projects]);
+  const resolveLogicalProjectKey = useMemo(
+    () => createLogicalProjectKeyResolver(orderedProjects),
+    [orderedProjects],
+  );
 
   // Build a mapping from physical project key → logical project key for
   // cross-environment grouping.  Projects that share a repositoryIdentity
@@ -2738,17 +2742,17 @@ export default function Sidebar() {
     const mapping = new Map<string, string>();
     for (const project of orderedProjects) {
       const physicalKey = scopedProjectKey(scopeProjectRef(project.environmentId, project.id));
-      mapping.set(physicalKey, deriveLogicalProjectKey(project));
+      mapping.set(physicalKey, resolveLogicalProjectKey(project));
     }
     return mapping;
-  }, [orderedProjects]);
+  }, [orderedProjects, resolveLogicalProjectKey]);
 
   const sidebarProjects = useMemo<SidebarProjectSnapshot[]>(() => {
     // Group projects by logical key while preserving insertion order from
     // orderedProjects.
     const groupedMembers = new Map<string, Project[]>();
     for (const project of orderedProjects) {
-      const logicalKey = deriveLogicalProjectKey(project);
+      const logicalKey = resolveLogicalProjectKey(project);
       const existing = groupedMembers.get(logicalKey);
       if (existing) {
         existing.push(project);
@@ -2760,7 +2764,7 @@ export default function Sidebar() {
     const result: SidebarProjectSnapshot[] = [];
     const seen = new Set<string>();
     for (const project of orderedProjects) {
-      const logicalKey = deriveLogicalProjectKey(project);
+      const logicalKey = resolveLogicalProjectKey(project);
       if (seen.has(logicalKey)) continue;
       seen.add(logicalKey);
 
@@ -2809,6 +2813,7 @@ export default function Sidebar() {
   }, [
     orderedProjects,
     primaryEnvironmentId,
+    resolveLogicalProjectKey,
     savedEnvironmentRegistry,
     savedEnvironmentRuntimeById,
   ]);

@@ -58,6 +58,7 @@ vi.mock("../lib/gitStatusState", () => ({
 
 const THREAD_ID = "thread-browser-test" as ThreadId;
 const PROJECT_ID = "project-1" as ProjectId;
+const NESTED_PROJECT_ID = "project-nested" as ProjectId;
 const LOCAL_ENVIRONMENT_ID = EnvironmentId.make("environment-local");
 const THREAD_REF = scopeThreadRef(LOCAL_ENVIRONMENT_ID, THREAD_ID);
 const THREAD_KEY = scopedThreadKey(THREAD_REF);
@@ -558,6 +559,45 @@ function createDraftOnlySnapshot(): OrchestrationReadModel {
   return {
     ...snapshot,
     threads: [],
+  };
+}
+
+function createSameRepositoryProjectsSnapshot(): OrchestrationReadModel {
+  const snapshot = createSnapshotForTargetUser({
+    targetMessageId: "msg-user-same-repository-projects" as MessageId,
+    targetText: "same repository projects",
+  });
+  const repositoryIdentity = {
+    canonicalKey: "github.com/example/shared-repo",
+    locator: {
+      source: "git-remote" as const,
+      remoteName: "origin",
+      remoteUrl: "https://github.com/example/shared-repo.git",
+    },
+  };
+
+  return {
+    ...snapshot,
+    projects: [
+      {
+        ...snapshot.projects[0]!,
+        repositoryIdentity,
+      },
+      {
+        id: NESTED_PROJECT_ID,
+        title: "Nested Project",
+        workspaceRoot: "/repo/project/nested",
+        repositoryIdentity,
+        defaultModelSelection: {
+          provider: "codex",
+          model: "gpt-5",
+        },
+        scripts: [],
+        createdAt: NOW_ISO,
+        updatedAt: NOW_ISO,
+        deletedAt: null,
+      },
+    ],
   };
 }
 
@@ -1688,6 +1728,24 @@ describe("ChatView timeline estimator parity (full app)", () => {
 
     try {
       await expect.element(page.getByText("No threads yet")).toBeInTheDocument();
+    } finally {
+      await mounted.cleanup();
+    }
+  });
+
+  it("shows same-environment projects separately when they share a repository identity", async () => {
+    const mounted = await mountChatView({
+      viewport: DEFAULT_VIEWPORT,
+      snapshot: createSameRepositoryProjectsSnapshot(),
+    });
+
+    try {
+      await expect
+        .element(page.getByRole("button", { name: "Project", exact: true }))
+        .toBeInTheDocument();
+      await expect
+        .element(page.getByRole("button", { name: "Nested Project", exact: true }))
+        .toBeInTheDocument();
     } finally {
       await mounted.cleanup();
     }

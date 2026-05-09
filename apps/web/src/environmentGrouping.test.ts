@@ -1,5 +1,5 @@
 import { EnvironmentId, ProjectId, ThreadId } from "@wobex/contracts";
-import { scopeProjectRef } from "@wobex/client-runtime";
+import { scopedProjectKey, scopeProjectRef } from "@wobex/client-runtime";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -10,7 +10,7 @@ import {
   type AppState,
   type EnvironmentState,
 } from "./store";
-import { deriveLogicalProjectKey } from "./logicalProject";
+import { createLogicalProjectKeyResolver, deriveLogicalProjectKey } from "./logicalProject";
 import type { Project, SidebarThreadSummary } from "./types";
 import { DEFAULT_INTERACTION_MODE } from "./types";
 
@@ -286,6 +286,63 @@ describe("environment grouping", () => {
         name: "remote-only",
       });
       expect(deriveLogicalProjectKey(local)).not.toBe(deriveLogicalProjectKey(remote));
+    });
+
+    it("splits same-environment projects that share a repository identity", () => {
+      const rootProject = makeProject({
+        id: ProjectId.make("same-env-root"),
+        environmentId: primaryEnvId,
+        name: "same-env-root",
+        cwd: "/repo",
+        repositoryIdentity: {
+          canonicalKey: SHARED_REPO_CANONICAL_KEY,
+          locator: {
+            source: "git-remote",
+            remoteName: "origin",
+            remoteUrl: "https://github.com/example/shared-repo.git",
+          },
+        },
+      });
+      const nestedProject = makeProject({
+        id: ProjectId.make("same-env-nested"),
+        environmentId: primaryEnvId,
+        name: "same-env-nested",
+        cwd: "/repo/packages/nested",
+        repositoryIdentity: {
+          canonicalKey: SHARED_REPO_CANONICAL_KEY,
+          locator: {
+            source: "git-remote",
+            remoteName: "origin",
+            remoteUrl: "https://github.com/example/shared-repo.git",
+          },
+        },
+      });
+      const remoteProject = makeProject({
+        id: ProjectId.make("same-env-remote"),
+        environmentId: remoteEnvId,
+        name: "same-env-remote",
+        cwd: "/remote/repo",
+        repositoryIdentity: {
+          canonicalKey: SHARED_REPO_CANONICAL_KEY,
+          locator: {
+            source: "git-remote",
+            remoteName: "origin",
+            remoteUrl: "https://github.com/example/shared-repo.git",
+          },
+        },
+      });
+
+      const resolveLogicalProjectKey = createLogicalProjectKeyResolver([
+        rootProject,
+        nestedProject,
+        remoteProject,
+      ]);
+
+      expect(resolveLogicalProjectKey(rootProject)).toBe(SHARED_REPO_CANONICAL_KEY);
+      expect(resolveLogicalProjectKey(remoteProject)).toBe(SHARED_REPO_CANONICAL_KEY);
+      expect(resolveLogicalProjectKey(nestedProject)).toBe(
+        scopedProjectKey(scopeProjectRef(nestedProject.environmentId, nestedProject.id)),
+      );
     });
   });
 
