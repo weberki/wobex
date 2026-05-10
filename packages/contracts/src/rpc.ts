@@ -100,6 +100,9 @@ import {
   ServerConfigStreamEvent,
   ServerConfig,
   ServerLifecycleStreamEvent,
+  ServerImageGenerationError,
+  ServerImageGenerationInput,
+  ServerImageGenerationResult,
   ServerProviderUpdatedPayload,
   ServerRefreshProviderUsageInput,
   ServerRefreshProviderUsageResult,
@@ -151,6 +154,7 @@ export const WS_METHODS = {
   serverGetConfig: "server.getConfig",
   serverRefreshProviders: "server.refreshProviders",
   serverRefreshProviderUsage: "server.refreshProviderUsage",
+  serverGenerateImage: "server.generateImage",
   serverUpsertKeybinding: "server.upsertKeybinding",
   serverGetSettings: "server.getSettings",
   serverUpdateSettings: "server.updateSettings",
@@ -208,6 +212,12 @@ export const WsServerRefreshProviderUsageRpc = Rpc.make(WS_METHODS.serverRefresh
   payload: ServerRefreshProviderUsageInput,
   success: ServerRefreshProviderUsageResult,
   error: AuthCapabilityError,
+});
+
+export const WsServerGenerateImageRpc = Rpc.make(WS_METHODS.serverGenerateImage, {
+  payload: ServerImageGenerationInput,
+  success: ServerImageGenerationResult,
+  error: withAuthCapabilityError(ServerImageGenerationError),
 });
 
 export const WsServerGetSettingsRpc = Rpc.make(WS_METHODS.serverGetSettings, {
@@ -551,6 +561,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerGetConfigRpc,
   WsServerRefreshProvidersRpc,
   WsServerRefreshProviderUsageRpc,
+  WsServerGenerateImageRpc,
   WsServerUpsertKeybindingRpc,
   WsServerGetSettingsRpc,
   WsServerUpdateSettingsRpc,

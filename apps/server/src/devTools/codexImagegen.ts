@@ -2,14 +2,32 @@ import { copyFile, mkdir, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { spawn } from "node:child_process";
 
-import { ThreadId, type ProviderEvent } from "@wobex/contracts";
+import {
+  ThreadId,
+  type ProviderEvent,
+  type ServerGeneratedImage,
+  type ServerImageGenerationInput,
+  type ServerImageGenerationResult,
+} from "@wobex/contracts";
 
 import { CodexAppServerManager } from "../codexAppServerManager";
 
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
 const DEFAULT_IMAGEGEN_TIMEOUT_MS = 10 * 60 * 1000;
 const noop = () => {};
+
+export const IMAGE_OUTPUT_FORMATS = ["png", "webp", "jpg", "jpeg"] as const;
+export type ImageOutputFormat = (typeof IMAGE_OUTPUT_FORMATS)[number];
+export type ImageResizeFit = "cover" | "contain" | "fill";
+
+export interface ImageResizeOptions {
+  readonly width: number;
+  readonly height: number;
+  readonly fit?: ImageResizeFit;
+  readonly background?: string;
+}
 
 export interface CodexImagegenPromptInput {
   readonly prompt: string;
@@ -33,6 +51,8 @@ export interface RunCodexImagegenDevToolInput extends CodexImagegenPromptInput {
   readonly cwd?: string;
   readonly codexBinary?: string;
   readonly codexHome?: string;
+  readonly resize?: ImageResizeOptions;
+  readonly magickBinary?: string;
   readonly manager?: CodexAppServerManager;
 }
 
@@ -40,6 +60,14 @@ export interface CodexImagegenDevToolResult {
   readonly generatedFiles: readonly string[];
   readonly outputFiles: readonly string[];
   readonly threadId: string;
+}
+
+export interface RunCodexImagegenServerToolInput {
+  readonly request: ServerImageGenerationInput;
+  readonly attachmentsDir: string;
+  readonly codexBinary?: string;
+  readonly codexHome?: string;
+  readonly magickBinary?: string;
 }
 
 export function buildCodexImagegenPrompt(input: CodexImagegenPromptInput): string {
@@ -77,18 +105,73 @@ export async function findGeneratedImageFiles(input: {
 
 export function resolveImagegenOutputTargets(input: {
   readonly outPath: string;
+  readonly outputFormat?: ImageOutputFormat;
   readonly sources: ReadonlyArray<Pick<GeneratedImageFile, "path" | "extension">>;
 }): string[] {
   const parsed = path.parse(input.outPath);
+  const requestedExtension = input.outputFormat ? `.${input.outputFormat}` : undefined;
   if (input.sources.length <= 1) {
     const sourceExtension = input.sources[0]?.extension;
-    return [parsed.ext ? input.outPath : `${input.outPath}${sourceExtension ?? ".png"}`];
+    const extension = requestedExtension ?? (parsed.ext || sourceExtension || ".png");
+    return [path.join(parsed.dir, `${parsed.name}${extension}`)];
   }
 
   return input.sources.map((source, index) => {
-    const extension = parsed.ext || source.extension || ".png";
+    const extension = requestedExtension ?? (parsed.ext || source.extension || ".png");
     return path.join(parsed.dir, `${parsed.name}-${index + 1}${extension}`);
   });
+}
+
+export function parseImageResize(value: string): ImageResizeOptions {
+  const match = /^(\d{1,5})x(\d{1,5})$/i.exec(value.trim());
+  if (!match) {
+    throw new Error("Expected resize in WIDTHxHEIGHT pixels, for example 1024x1024.");
+  }
+  const width = Number.parseInt(match[1] ?? "", 10);
+  const height = Number.parseInt(match[2] ?? "", 10);
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) {
+    throw new Error("Expected resize in WIDTHxHEIGHT pixels, for example 1024x1024.");
+  }
+  return { width, height };
+}
+
+export function normalizeImageOutputFormat(value: string): ImageOutputFormat {
+  const normalized = value.trim().toLowerCase();
+  if (IMAGE_OUTPUT_FORMATS.includes(normalized as ImageOutputFormat)) {
+    return normalized as ImageOutputFormat;
+  }
+  throw new Error(`Unsupported output format: ${value}. Use png, webp, jpg, or jpeg.`);
+}
+
+export function buildImageMagickPostprocessArgs(input: {
+  readonly sourcePath: string;
+  readonly targetPath: string;
+  readonly resize?: ImageResizeOptions;
+}): string[] {
+  const args = [input.sourcePath, "-auto-orient"];
+  const resize = input.resize;
+  if (resize) {
+    const geometry = `${resize.width}x${resize.height}`;
+    const fit = resize.fit ?? "cover";
+    if (fit === "cover") {
+      args.push("-resize", `${geometry}^`, "-gravity", "center", "-extent", geometry);
+    } else if (fit === "contain") {
+      args.push(
+        "-resize",
+        geometry,
+        "-background",
+        resize.background ?? "transparent",
+        "-gravity",
+        "center",
+        "-extent",
+        geometry,
+      );
+    } else {
+      args.push("-resize", `${geometry}!`);
+    }
+  }
+  args.push(input.targetPath);
+  return args;
 }
 
 export async function runCodexImagegenDevTool(
@@ -138,6 +221,9 @@ export async function runCodexImagegenDevTool(
 
     const outputFiles = resolveImagegenOutputTargets({
       outPath: input.outPath,
+      ...(input.outputFormat
+        ? { outputFormat: normalizeImageOutputFormat(input.outputFormat) }
+        : {}),
       sources: generatedFiles,
     });
     await Promise.all(
@@ -147,7 +233,12 @@ export async function runCodexImagegenDevTool(
           return;
         }
         await mkdir(path.dirname(target), { recursive: true });
-        await copyFile(source.path, target);
+        await copyOrPostprocessImage({
+          source,
+          targetPath: target,
+          ...(input.resize ? { resize: input.resize } : {}),
+          ...(input.magickBinary ? { magickBinary: input.magickBinary } : {}),
+        });
       }),
     );
 
@@ -161,6 +252,118 @@ export async function runCodexImagegenDevTool(
       manager.stopSession(threadId);
     }
   }
+}
+
+export async function runCodexImagegenServerTool(
+  input: RunCodexImagegenServerToolInput,
+): Promise<ServerImageGenerationResult> {
+  const startedAt = Date.now();
+  const jobId = randomUUID();
+  const outputBasename = sanitizeImageOutputBasename(input.request.outputBasename ?? "imagegen");
+  const outputStem = path.join(input.attachmentsDir, "imagegen", jobId, outputBasename);
+  const result = await runCodexImagegenDevTool({
+    prompt: input.request.prompt,
+    outPath: outputStem,
+    count: input.request.count ?? 1,
+    ...(input.request.size ? { size: input.request.size } : {}),
+    ...(input.request.quality ? { quality: input.request.quality } : {}),
+    ...(input.request.format ? { outputFormat: input.request.format } : {}),
+    ...(input.request.resize
+      ? {
+          resize: {
+            width: input.request.resize.width,
+            height: input.request.resize.height,
+            fit: input.request.resize.fit ?? "cover",
+            ...(input.request.resize.background
+              ? { background: input.request.resize.background }
+              : {}),
+          },
+        }
+      : {}),
+    ...(input.request.model ? { model: input.request.model } : {}),
+    ...(input.request.cwd ? { cwd: input.request.cwd } : {}),
+    ...(input.request.timeoutMs ? { timeoutMs: input.request.timeoutMs } : {}),
+    ...(input.codexBinary ? { codexBinary: input.codexBinary } : {}),
+    ...(input.codexHome ? { codexHome: input.codexHome } : {}),
+    ...(input.magickBinary ? { magickBinary: input.magickBinary } : {}),
+  });
+
+  const images = await Promise.all(
+    result.outputFiles.map(async (filePath, index): Promise<ServerGeneratedImage> => {
+      const stats = await stat(filePath);
+      const sourcePath = result.generatedFiles[index];
+      const relativePath = path.relative(input.attachmentsDir, filePath).replace(/\\/g, "/");
+      return {
+        path: filePath,
+        url: `/attachments/${relativePath}`,
+        sizeBytes: stats.size,
+        ...(sourcePath ? { sourcePath } : {}),
+      };
+    }),
+  );
+
+  return {
+    threadId: result.threadId,
+    generatedAt: new Date().toISOString(),
+    durationMs: Date.now() - startedAt,
+    images,
+  };
+}
+
+async function copyOrPostprocessImage(input: {
+  readonly source: GeneratedImageFile;
+  readonly targetPath: string;
+  readonly resize?: ImageResizeOptions;
+  readonly magickBinary?: string;
+}): Promise<void> {
+  const targetExtension = path.extname(input.targetPath).toLowerCase();
+  const shouldPostprocess = Boolean(input.resize) || targetExtension !== input.source.extension;
+  if (!shouldPostprocess) {
+    await copyFile(input.source.path, input.targetPath);
+    return;
+  }
+
+  const args = buildImageMagickPostprocessArgs({
+    sourcePath: input.source.path,
+    targetPath: input.targetPath,
+    ...(input.resize ? { resize: input.resize } : {}),
+  });
+  await runImageMagick(input.magickBinary ?? "magick", args);
+}
+
+async function runImageMagick(binary: string, args: readonly string[]): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(binary, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      shell: false,
+    });
+    const stderr: Buffer[] = [];
+    child.stderr.on("data", (chunk) => {
+      stderr.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    });
+    child.on("error", (error) => {
+      reject(
+        new Error(
+          `Image postprocessing failed to start '${binary}'. Install ImageMagick or omit --resize/format conversion.`,
+          { cause: error },
+        ),
+      );
+    });
+    child.on("close", (code, signal) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      const detail = Buffer.concat(stderr).toString("utf8").trim();
+      reject(
+        new Error(
+          signal
+            ? `Image postprocessing exited after signal ${signal}.`
+            : `Image postprocessing exited with code ${code ?? "unknown"}${detail ? `: ${detail}` : ""}`,
+        ),
+      );
+    });
+  });
 }
 
 async function collectGeneratedImageFiles(
@@ -287,4 +490,14 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
   return typeof value === "object" && value !== null
     ? (value as Record<string, unknown>)
     : undefined;
+}
+
+function sanitizeImageOutputBasename(value: string): string {
+  const sanitized = value
+    .trim()
+    .replace(/\.[A-Za-z0-9]+$/, "")
+    .replace(/[^A-Za-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  return sanitized || "imagegen";
 }

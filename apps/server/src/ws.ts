@@ -20,6 +20,7 @@ import {
   ProjectSearchEntriesError,
   ProjectWriteFileError,
   OrchestrationReplayEventsError,
+  ServerImageGenerationError,
   ThreadId,
   type TerminalEvent,
   WS_METHODS,
@@ -74,6 +75,7 @@ import {
 import { refreshClaudeUsage } from "./claudeUsageProbe";
 import { respondToAuthError } from "./auth/http";
 import { requiredCapabilityForWsOrchestrationCommand } from "./wsAuthorization";
+import { runCodexImagegenServerTool } from "./devTools/codexImagegen";
 
 function toAuthAccessStreamEvent(
   change: BootstrapCredentialChange | SessionCredentialChange,
@@ -731,6 +733,26 @@ const makeWsRpcLayer = (session: AuthenticatedSession) =>
               WS_METHODS.serverRefreshProviderUsage,
               "chat:read",
               Effect.promise(() => refreshClaudeUsage(input)),
+            ),
+            { "rpc.aggregate": "server" },
+          ),
+        [WS_METHODS.serverGenerateImage]: (input) =>
+          observeRpcEffect(
+            WS_METHODS.serverGenerateImage,
+            authorizeEffect(
+              WS_METHODS.serverGenerateImage,
+              "chat:write",
+              Effect.tryPromise({
+                try: () =>
+                  runCodexImagegenServerTool({
+                    request: input,
+                    attachmentsDir: config.attachmentsDir,
+                  }),
+                catch: (error) =>
+                  new ServerImageGenerationError({
+                    message: error instanceof Error ? error.message : "Image generation failed.",
+                  }),
+              }),
             ),
             { "rpc.aggregate": "server" },
           ),

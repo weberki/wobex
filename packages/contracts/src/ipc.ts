@@ -53,6 +53,8 @@ import type {
   DevServerStreamEvent,
   ManagedDevServer,
   ServerConfig,
+  ServerImageGenerationInput,
+  ServerImageGenerationResult,
   ServerProviderUpdatedPayload,
   ServerRefreshProviderUsageInput,
   ServerRefreshProviderUsageResult,
@@ -414,6 +416,9 @@ export interface EnvironmentApi {
   };
   providerUsage: {
     refresh: (input: ServerRefreshProviderUsageInput) => Promise<ServerRefreshProviderUsageResult>;
+  };
+  imageGeneration: {
+    generate: (input: ServerImageGenerationInput) => Promise<ServerImageGenerationResult>;
   };
   devServers: {
     getSnapshot: () => Promise<DevServerSnapshot>;

@@ -5,8 +5,10 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  buildImageMagickPostprocessArgs,
   buildCodexImagegenPrompt,
   findGeneratedImageFiles,
+  parseImageResize,
   resolveImagegenOutputTargets,
 } from "./codexImagegen";
 
@@ -87,6 +89,77 @@ describe("resolveImagegenOutputTargets", () => {
     ).toEqual([
       path.join("output", "imagegen", "hero-1.png"),
       path.join("output", "imagegen", "hero-2.png"),
+    ]);
+  });
+});
+
+describe("parseImageResize", () => {
+  it("parses pixel resize strings", () => {
+    expect(parseImageResize("1024x1024")).toEqual({ width: 1024, height: 1024 });
+    expect(parseImageResize("1536X864")).toEqual({ width: 1536, height: 864 });
+  });
+
+  it("rejects aspect-ratio strings because they are prompt hints, not exact sizes", () => {
+    expect(() => parseImageResize("16:9")).toThrow("Expected resize in WIDTHxHEIGHT pixels");
+  });
+});
+
+describe("buildImageMagickPostprocessArgs", () => {
+  it("builds cover resize args that crop to the exact target canvas", () => {
+    expect(
+      buildImageMagickPostprocessArgs({
+        sourcePath: "generated.png",
+        targetPath: "hero.webp",
+        resize: { width: 1536, height: 864, fit: "cover" },
+      }),
+    ).toEqual([
+      "generated.png",
+      "-auto-orient",
+      "-resize",
+      "1536x864^",
+      "-gravity",
+      "center",
+      "-extent",
+      "1536x864",
+      "hero.webp",
+    ]);
+  });
+
+  it("builds contain resize args that pad to the exact target canvas", () => {
+    expect(
+      buildImageMagickPostprocessArgs({
+        sourcePath: "generated.png",
+        targetPath: "hero.png",
+        resize: { width: 1024, height: 1024, fit: "contain", background: "#101014" },
+      }),
+    ).toEqual([
+      "generated.png",
+      "-auto-orient",
+      "-resize",
+      "1024x1024",
+      "-background",
+      "#101014",
+      "-gravity",
+      "center",
+      "-extent",
+      "1024x1024",
+      "hero.png",
+    ]);
+  });
+
+  it("uses the requested format extension for output targets", () => {
+    expect(
+      resolveImagegenOutputTargets({
+        outPath: path.join("output", "imagegen", "hero.png"),
+        outputFormat: "webp",
+        sources: [
+          { path: "generated-1.png", extension: ".png" },
+          { path: "generated-2.png", extension: ".png" },
+        ],
+      }),
+    ).toEqual([
+      path.join("output", "imagegen", "hero-1.webp"),
+      path.join("output", "imagegen", "hero-2.webp"),
     ]);
   });
 });

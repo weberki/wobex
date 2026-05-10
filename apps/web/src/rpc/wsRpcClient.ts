@@ -6,6 +6,8 @@ import {
   type GitStatusStreamEvent,
   type LocalApi,
   type ServerSettingsPatch,
+  type ServerImageGenerationInput,
+  type ServerImageGenerationResult,
   type ServerRefreshProviderUsageInput,
   type ServerRefreshProviderUsageResult,
   ORCHESTRATION_WS_METHODS,
@@ -121,6 +123,9 @@ export interface WsRpcClient {
     readonly refreshProviderUsage: (
       input: ServerRefreshProviderUsageInput,
     ) => Promise<ServerRefreshProviderUsageResult>;
+    readonly generateImage: (
+      input: ServerImageGenerationInput,
+    ) => Promise<ServerImageGenerationResult>;
     readonly upsertKeybinding: RpcUnaryMethod<typeof WS_METHODS.serverUpsertKeybinding>;
     readonly getSettings: RpcUnaryNoArgMethod<typeof WS_METHODS.serverGetSettings>;
     readonly updateSettings: (
@@ -266,6 +271,8 @@ export function createWsRpcClient(transport: WsTransport): WsRpcClient {
         transport.request((client) => client[WS_METHODS.serverRefreshProviders]({})),
       refreshProviderUsage: (input) =>
         transport.request((client) => client[WS_METHODS.serverRefreshProviderUsage](input)),
+      generateImage: (input) =>
+        transport.request((client) => client[WS_METHODS.serverGenerateImage](input)),
       upsertKeybinding: (input) =>
         transport.request((client) => client[WS_METHODS.serverUpsertKeybinding](input)),
       getSettings: () => transport.request((client) => client[WS_METHODS.serverGetSettings]({})),

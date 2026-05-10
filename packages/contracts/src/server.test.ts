@@ -7,6 +7,8 @@ import {
   DevServerStartInput,
   DevServerStopInput,
   DevServerStreamEvent,
+  ServerImageGenerationInput,
+  ServerImageGenerationResult,
   ServerRefreshProviderUsageInput,
   ServerRefreshProviderUsageResult,
 } from "./server";
@@ -21,6 +23,8 @@ const decodeServerRefreshProviderUsageInput = Schema.decodeUnknownSync(
 const decodeServerRefreshProviderUsageResult = Schema.decodeUnknownSync(
   ServerRefreshProviderUsageResult,
 );
+const decodeServerImageGenerationInput = Schema.decodeUnknownSync(ServerImageGenerationInput);
+const decodeServerImageGenerationResult = Schema.decodeUnknownSync(ServerImageGenerationResult);
 
 describe("dev server contracts", () => {
   it("decodes dev server snapshots with managed and external rows", () => {
@@ -133,5 +137,39 @@ describe("dev server contracts", () => {
     expect(input.provider).toBe("claudeAgent");
     expect(result.rateLimits.windows[0]?.remainingPercent).toBe(70);
     expect(WS_METHODS.serverRefreshProviderUsage).toBe("server.refreshProviderUsage");
+  });
+
+  it("decodes image generation contracts", () => {
+    const input = decodeServerImageGenerationInput({
+      prompt: "A tiny Wobex logo mark",
+      count: 2,
+      size: "16:9",
+      quality: "high",
+      format: "webp",
+      resize: {
+        width: 1536,
+        height: 864,
+        fit: "cover",
+      },
+      outputBasename: "wobex-hero",
+      timeoutMs: 600_000,
+    });
+    const result = decodeServerImageGenerationResult({
+      threadId: "dev-imagegen-1",
+      generatedAt: "2026-05-10T18:00:00.000Z",
+      durationMs: 42_000,
+      images: [
+        {
+          path: "/tmp/wobex/attachments/imagegen/job-1/wobex-hero.webp",
+          url: "/attachments/imagegen/job-1/wobex-hero.webp",
+          sizeBytes: 123_456,
+          sourcePath: "/tmp/codex/generated.png",
+        },
+      ],
+    });
+
+    expect(input.resize?.fit).toBe("cover");
+    expect(result.images[0]?.url).toBe("/attachments/imagegen/job-1/wobex-hero.webp");
+    expect(WS_METHODS.serverGenerateImage).toBe("server.generateImage");
   });
 });

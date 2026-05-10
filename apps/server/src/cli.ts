@@ -85,7 +85,12 @@ import {
   formatProviderUsageResults,
   withUsageSpinner,
 } from "./usageCli";
-import { runCodexImagegenDevTool } from "./devTools/codexImagegen";
+import {
+  normalizeImageOutputFormat,
+  parseImageResize,
+  runCodexImagegenDevTool,
+  type ImageResizeFit,
+} from "./devTools/codexImagegen";
 import { runOracleDevTool } from "./devTools/oracle";
 import { WorkspacePaths } from "./workspace/Services/WorkspacePaths";
 import { WorkspacePathsLive } from "./workspace/Layers/WorkspacePaths";
@@ -1533,8 +1538,28 @@ const devImagegenCommand = Command.make("imagegen", {
     Flag.optional,
   ),
   outputFormat: Flag.string("format").pipe(
-    Flag.withDescription("Optional preferred output format, for example png or webp."),
+    Flag.withDescription("Optional preferred output format, for example png, webp, jpg, or jpeg."),
+    Flag.map(normalizeImageOutputFormat),
     Flag.optional,
+  ),
+  resize: Flag.string("resize").pipe(
+    Flag.withDescription("Exact output resize in pixels, for example 1024x1024."),
+    Flag.mapTryCatch(parseImageResize, (error) =>
+      error instanceof Error ? error.message : "Invalid resize.",
+    ),
+    Flag.optional,
+  ),
+  fit: Flag.choice("fit", ["cover", "contain", "fill"]).pipe(
+    Flag.withDescription("Resize fit mode when --resize is set."),
+    Flag.withDefault("cover"),
+  ),
+  background: Flag.string("background").pipe(
+    Flag.withDescription("Padding background for --fit contain. Defaults to transparent."),
+    Flag.optional,
+  ),
+  magickBinary: Flag.string("magick-binary").pipe(
+    Flag.withDescription("ImageMagick binary used for resize/format postprocessing."),
+    Flag.withDefault("magick"),
   ),
   model: Flag.string("model").pipe(
     Flag.withDescription("Optional Codex model override."),
@@ -1571,6 +1596,18 @@ const devImagegenCommand = Command.make("imagegen", {
           ...(Option.isSome(flags.size) ? { size: flags.size.value } : {}),
           ...(Option.isSome(flags.quality) ? { quality: flags.quality.value } : {}),
           ...(Option.isSome(flags.outputFormat) ? { outputFormat: flags.outputFormat.value } : {}),
+          ...(Option.isSome(flags.resize)
+            ? {
+                resize: {
+                  ...flags.resize.value,
+                  fit: flags.fit as ImageResizeFit,
+                  ...(Option.isSome(flags.background)
+                    ? { background: flags.background.value }
+                    : {}),
+                },
+              }
+            : {}),
+          magickBinary: flags.magickBinary,
           ...(Option.isSome(flags.model) ? { model: flags.model.value } : {}),
           ...(Option.isSome(flags.codexHome) ? { codexHome: flags.codexHome.value } : {}),
           ...(Option.isSome(flags.cwd) ? { cwd: flags.cwd.value } : {}),

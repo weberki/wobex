@@ -58,6 +58,9 @@ export function createEnvironmentApi(rpcClient: WsRpcClient): EnvironmentApi {
     providerUsage: {
       refresh: rpcClient.server.refreshProviderUsage,
     },
+    imageGeneration: {
+      generate: rpcClient.server.generateImage,
+    },
     devServers: {
       getSnapshot: rpcClient.devServers.getSnapshot,
       start: rpcClient.devServers.start,

@@ -81,6 +81,7 @@ const rpcClientMock = {
     getConfig: vi.fn(),
     refreshProviders: vi.fn(),
     refreshProviderUsage: vi.fn(),
+    generateImage: vi.fn(),
     upsertKeybinding: vi.fn(),
     getSettings: vi.fn(),
     updateSettings: vi.fn(),
@@ -581,6 +582,39 @@ describe("wsApi", () => {
       provider: "claudeAgent",
       cwd: "/repo",
       force: true,
+    });
+  });
+
+  it("forwards image generation requests through the environment API", async () => {
+    const result = {
+      threadId: "dev-imagegen-1",
+      generatedAt: "2026-05-10T18:00:00.000Z",
+      durationMs: 42_000,
+      images: [
+        {
+          path: "/tmp/wobex/attachments/imagegen/job-1/wobex-hero.webp",
+          url: "/attachments/imagegen/job-1/wobex-hero.webp",
+          sizeBytes: 123_456,
+          sourcePath: "/tmp/codex/generated.png",
+        },
+      ],
+    };
+    rpcClientMock.server.generateImage.mockResolvedValue(result);
+    const { createEnvironmentApi } = await import("./environmentApi");
+
+    const api = createEnvironmentApi(rpcClientMock as never);
+
+    await expect(
+      api.imageGeneration.generate({
+        prompt: "A tiny Wobex logo mark",
+        format: "webp",
+        resize: { width: 1536, height: 864, fit: "cover" },
+      }),
+    ).resolves.toEqual(result);
+    expect(rpcClientMock.server.generateImage).toHaveBeenCalledWith({
+      prompt: "A tiny Wobex logo mark",
+      format: "webp",
+      resize: { width: 1536, height: 864, fit: "cover" },
     });
   });
 

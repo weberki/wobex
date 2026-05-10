@@ -243,6 +243,59 @@ export const ServerRefreshProviderUsageResult = Schema.Struct({
 });
 export type ServerRefreshProviderUsageResult = typeof ServerRefreshProviderUsageResult.Type;
 
+export const ServerImageGenerationFormat = Schema.Literals(["png", "webp", "jpg", "jpeg"]);
+export type ServerImageGenerationFormat = typeof ServerImageGenerationFormat.Type;
+
+export const ServerImageGenerationFit = Schema.Literals(["cover", "contain", "fill"]);
+export type ServerImageGenerationFit = typeof ServerImageGenerationFit.Type;
+
+const ImageDimension = PositiveInt.check(Schema.isLessThanOrEqualTo(8192));
+
+export const ServerImageGenerationResize = Schema.Struct({
+  width: ImageDimension,
+  height: ImageDimension,
+  fit: Schema.optional(ServerImageGenerationFit),
+  background: Schema.optional(TrimmedNonEmptyString),
+});
+export type ServerImageGenerationResize = typeof ServerImageGenerationResize.Type;
+
+export const ServerImageGenerationInput = Schema.Struct({
+  prompt: TrimmedNonEmptyString,
+  count: Schema.optional(PositiveInt),
+  size: Schema.optional(TrimmedNonEmptyString),
+  quality: Schema.optional(TrimmedNonEmptyString),
+  format: Schema.optional(ServerImageGenerationFormat),
+  resize: Schema.optional(ServerImageGenerationResize),
+  outputBasename: Schema.optional(TrimmedNonEmptyString),
+  model: Schema.optional(TrimmedNonEmptyString),
+  cwd: Schema.optional(TrimmedNonEmptyString),
+  timeoutMs: Schema.optional(PositiveInt),
+});
+export type ServerImageGenerationInput = typeof ServerImageGenerationInput.Type;
+
+export const ServerGeneratedImage = Schema.Struct({
+  path: TrimmedNonEmptyString,
+  url: TrimmedNonEmptyString,
+  sizeBytes: NonNegativeInt,
+  sourcePath: Schema.optional(TrimmedNonEmptyString),
+});
+export type ServerGeneratedImage = typeof ServerGeneratedImage.Type;
+
+export const ServerImageGenerationResult = Schema.Struct({
+  threadId: TrimmedNonEmptyString,
+  generatedAt: IsoDateTime,
+  durationMs: NonNegativeInt,
+  images: Schema.Array(ServerGeneratedImage),
+});
+export type ServerImageGenerationResult = typeof ServerImageGenerationResult.Type;
+
+export class ServerImageGenerationError extends Schema.TaggedErrorClass<ServerImageGenerationError>()(
+  "ServerImageGenerationError",
+  {
+    message: TrimmedNonEmptyString,
+  },
+) {}
+
 const DevServerPort = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)).check(
   Schema.isLessThanOrEqualTo(65535),
 );
