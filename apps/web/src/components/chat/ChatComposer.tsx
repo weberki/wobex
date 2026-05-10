@@ -71,7 +71,6 @@ import { ComposerPrimaryActions } from "./ComposerPrimaryActions";
 import { ComposerPendingApprovalPanel } from "./ComposerPendingApprovalPanel";
 import { ComposerPendingUserInputPanel } from "./ComposerPendingUserInputPanel";
 import { ComposerPlanFollowUpBanner } from "./ComposerPlanFollowUpBanner";
-import { ComposerMascot } from "./ComposerMascot";
 import {
   getComposerProviderState,
   renderProviderTraitsMenuContent,
@@ -1859,10 +1858,9 @@ export const ChatComposer = memo(
         className="relative mx-auto w-full min-w-0 max-w-208"
         data-chat-composer-form="true"
       >
-        <ComposerMascot busy={isSendBusy} />
         <div
           className={cn(
-            "group rounded-[22px] p-px transition-colors duration-200",
+            "group rounded-3xl p-px transition-colors duration-200",
             composerProviderState.composerFrameClassName,
           )}
           onDragEnter={onComposerDragEnter}
@@ -1872,8 +1870,8 @@ export const ChatComposer = memo(
         >
           <div
             className={cn(
-              "chat-composer-surface overflow-hidden rounded-2xl border bg-background transition-colors duration-200 has-focus-visible:border-[color:var(--app-composer-focus-border,var(--ring))]",
-              isDragOverComposer ? "border-primary/70 bg-accent/30" : "",
+              "chat-composer-surface overflow-hidden rounded-2xl border border-[color:var(--color-border-light,var(--border))] transition-colors duration-200 has-focus-visible:border-[color:var(--app-composer-focus-border,var(--ring))]",
+              isDragOverComposer ? "!bg-[var(--color-background-control,var(--accent))]" : "",
               composerProviderState.composerSurfaceClassName,
             )}
           >
@@ -1903,14 +1901,14 @@ export const ChatComposer = memo(
               onAddImage={() => pinRowFileInputRef.current?.click()}
             />
             {activePendingApproval ? (
-              <div className="rounded-t-[19px] border-b border-border/65 bg-muted/20">
+              <div className="rounded-t-[23px] border-b border-[color:var(--color-border-light,var(--border))] bg-[var(--color-background-elevated-secondary,var(--muted))]">
                 <ComposerPendingApprovalPanel
                   approval={activePendingApproval}
                   pendingCount={pendingApprovals.length}
                 />
               </div>
             ) : pendingUserInputs.length > 0 ? (
-              <div className="rounded-t-[19px] border-b border-border/65 bg-muted/20">
+              <div className="rounded-t-[23px] border-b border-[color:var(--color-border-light,var(--border))] bg-[var(--color-background-elevated-secondary,var(--muted))]">
                 <ComposerPendingUserInputPanel
                   pendingUserInputs={pendingUserInputs}
                   respondingRequestIds={respondingRequestIds}
@@ -1921,7 +1919,7 @@ export const ChatComposer = memo(
                 />
               </div>
             ) : showPlanFollowUpPrompt && activeProposedPlan ? (
-              <div className="rounded-t-[19px] border-b border-border/65 bg-muted/20">
+              <div className="rounded-t-[23px] border-b border-[color:var(--color-border-light,var(--border))] bg-[var(--color-background-elevated-secondary,var(--muted))]">
                 <ComposerPlanFollowUpBanner
                   key={activeProposedPlan.id}
                   planTitle={proposedPlanTitle(activeProposedPlan.planMarkdown) ?? null}
@@ -1930,10 +1928,7 @@ export const ChatComposer = memo(
             ) : null}
 
             <div
-              className={cn(
-                "relative px-3 pb-2 sm:px-4",
-                hasComposerHeader ? "pt-2.5 sm:pt-3" : "pt-3.5 sm:pt-4",
-              )}
+              className={cn("relative px-3.5 pb-1", hasComposerHeader ? "pt-2.5 sm:pt-3" : "pt-3")}
             >
               {composerMenuOpen && !isComposerApprovalState && (
                 <div className="absolute inset-x-0 bottom-full z-20 mb-2 px-1">
@@ -2051,7 +2046,7 @@ export const ChatComposer = memo(
             </div>
 
             {activePendingApproval ? (
-              <div className="flex items-center justify-end gap-2 border-t border-border/60 bg-muted/10 px-2 py-1.5">
+              <div className="flex items-center justify-end gap-2 px-3 pb-2">
                 <ComposerPendingApprovalActions
                   requestId={activePendingApproval.requestId}
                   isResponding={respondingRequestIds.includes(activePendingApproval.requestId)}
@@ -2063,7 +2058,10 @@ export const ChatComposer = memo(
                 ref={composerFooterRef}
                 data-chat-composer-footer="true"
                 data-chat-composer-footer-compact={isComposerFooterCompact ? "true" : "false"}
-                className="flex items-center justify-between gap-2 border-t border-[color:var(--color-border-light,var(--border))] bg-muted/10 px-2.5 py-1.5"
+                className={cn(
+                  "flex items-end justify-between px-2.5 pb-2",
+                  isComposerFooterCompact ? "gap-1.5" : "flex-wrap gap-1.5 sm:flex-nowrap sm:gap-0",
+                )}
               >
                 {/* Left side: extras menu, model picker, trait chips */}
                 <div

@@ -354,7 +354,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
           }
 
           return (
-            <div className="rounded-xl border border-border/45 bg-card/25 px-2 py-1.5">
+            <div className="rounded-lg border border-[color:var(--color-border-light,var(--border))] bg-[var(--composer-surface,var(--card))] px-2 py-1.5 shadow-sm">
               {showHeader && (
                 <div className="mb-1.5 flex items-center justify-between gap-2 px-0.5">
                   <p className="text-[9px] uppercase tracking-[0.16em] text-muted-foreground/55">
@@ -389,7 +389,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
           const canRevertAgentWork = revertTurnCountByUserMessageId.has(row.message.id);
           return (
             <div className="flex justify-end">
-              <div className="group relative max-w-[80%] rounded-lg border border-border/35 bg-secondary/80 px-3.5 py-2.5 shadow-sm">
+              <div className="group relative w-max max-w-full min-w-0 rounded-lg bg-secondary px-3.5 py-2.5 shadow-sm">
                 {userImages.length > 0 && (
                   <div className="mb-2 grid max-w-[420px] grid-cols-2 gap-2">
                     {userImages.map(

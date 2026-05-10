@@ -223,17 +223,17 @@ export const WorkspaceWindow = memo(function WorkspaceWindow(props: {
 
   return (
     <aside
-      className="relative flex min-h-0 shrink-0 border-l border-border/70 bg-card/50"
+      className="relative flex min-h-0 shrink-0 border-l border-[color:var(--color-border-light,var(--border))] bg-background font-system-ui"
       style={{ width }}
     >
       <button
         type="button"
         aria-label="Resize workspace window"
-        className="absolute inset-y-0 left-0 z-20 w-1.5 cursor-col-resize bg-transparent hover:bg-border/60"
+        className="absolute inset-y-0 left-0 z-20 w-1.5 cursor-col-resize bg-transparent hover:bg-[var(--color-border-light,var(--border))]"
         onPointerDown={beginResize}
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className="flex min-h-12 items-center justify-between border-b border-border/60 px-3 py-2">
+        <div className="flex min-h-12 items-center justify-between border-b border-[color:var(--color-border-light,var(--border))] px-3 py-2">
           <div className="min-w-0">
             <div className="flex min-w-0 items-center gap-2">
               <activeTabDefinition.Icon className="size-3.5 shrink-0 text-muted-foreground/70" />
@@ -255,10 +255,10 @@ export const WorkspaceWindow = memo(function WorkspaceWindow(props: {
             <PanelRightCloseIcon className="size-3.5" />
           </Button>
         </div>
-        <div className="border-b border-border/60 px-2 py-2">
+        <div className="border-b border-[color:var(--color-border-light,var(--border))] px-2 py-2">
           <ToggleGroup
             aria-label="Workspace tabs"
-            className="flex w-full flex-wrap gap-1"
+            className="flex w-full flex-nowrap gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             orientation="horizontal"
             value={[props.activeTab]}
           >
@@ -267,12 +267,12 @@ export const WorkspaceWindow = memo(function WorkspaceWindow(props: {
                 key={value}
                 pressed={props.activeTab === value}
                 size="sm"
-                variant="outline"
-                className="min-w-0 flex-1 justify-start gap-1.5 px-2.5"
+                variant="default"
+                className="h-7 min-w-max justify-start gap-1.5 rounded-lg border-0 bg-transparent px-2 text-[length:var(--app-font-size-ui-sm,11px)] font-normal text-muted-foreground/72 shadow-none before:hidden hover:bg-[var(--color-background-button-secondary-hover)] hover:text-foreground data-pressed:bg-[var(--color-background-button-secondary)] data-pressed:text-foreground"
                 onPressedChange={() => props.onTabChange(value)}
               >
                 <Icon className="size-3.5 shrink-0" />
-                <span className="truncate text-xs">{label}</span>
+                <span className="truncate">{label}</span>
               </Toggle>
             ))}
           </ToggleGroup>

@@ -3428,12 +3428,13 @@ export default function ChatView(props: ChatViewProps) {
   }
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden bg-background">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
       {/* Top bar */}
       <header
         className={cn(
-          "border-b border-[color:var(--color-border-light,var(--border))] bg-background/75 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:px-5",
+          "border-b border-[color:var(--color-border-light,var(--border))] px-3 sm:px-5",
           isElectron ? "drag-region flex h-[52px] items-center" : "py-2 sm:py-3",
+          isElectron && settings.sidebarSide === "right" && "pl-[90px] sm:pl-[90px]",
         )}
       >
         <ChatHeader
@@ -3531,14 +3532,15 @@ export default function ChatView(props: ChatViewProps) {
 
             {/* scroll to bottom pill — shown when user has scrolled away from the bottom */}
             {showScrollToBottom && (
-              <div className="pointer-events-none absolute bottom-1 left-1/2 z-30 flex -translate-x-1/2 justify-center py-1.5">
+              <div className="pointer-events-none absolute bottom-1 left-1/2 z-30 flex -translate-x-1/2 justify-center py-1">
                 <button
                   type="button"
                   onClick={() => scrollMessagesToBottom("smooth")}
-                  className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-border/60 bg-card px-3 py-1 text-muted-foreground text-xs shadow-sm transition-colors hover:border-border hover:text-foreground hover:cursor-pointer"
+                  data-scroll-anchor-ignore
+                  aria-label="Scroll to bottom"
+                  className="pointer-events-auto flex size-9 items-center justify-center rounded-full border border-[color:var(--color-border,var(--border))] bg-[var(--color-background-elevated-primary-opaque,var(--card))] text-[var(--color-text-foreground-secondary,var(--muted-foreground))] shadow-sm backdrop-blur-sm transition-colors hover:cursor-pointer hover:bg-[var(--color-background-elevated-secondary,var(--accent))] hover:text-[var(--color-text-foreground,var(--foreground))]"
                 >
-                  <ChevronDownIcon className="size-3.5" />
-                  Scroll to bottom
+                  <ChevronDownIcon className="size-4" />
                 </button>
               </div>
             )}

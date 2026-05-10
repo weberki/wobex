@@ -449,6 +449,9 @@ export function useSettingsRestore(onRestored?: () => void) {
       ...(settings.defaultThreadEnvMode !== DEFAULT_UNIFIED_SETTINGS.defaultThreadEnvMode
         ? ["New thread mode"]
         : []),
+      ...(settings.sidebarSide !== DEFAULT_UNIFIED_SETTINGS.sidebarSide
+        ? ["Sidebar placement"]
+        : []),
       ...(settings.confirmThreadArchive !== DEFAULT_UNIFIED_SETTINGS.confirmThreadArchive
         ? ["Archive confirmation"]
         : []),
@@ -468,6 +471,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.defaultThreadEnvMode,
       settings.diffWordWrap,
       settings.enableAssistantStreaming,
+      settings.sidebarSide,
       settings.timestampFormat,
       settings.uiFontFamily,
       appearance,
@@ -1060,6 +1064,45 @@ export function GeneralSettingsPanel() {
                 </SelectItem>
                 <SelectItem hideIndicator value="worktree">
                   New worktree
+                </SelectItem>
+              </SelectPopup>
+            </Select>
+          }
+        />
+
+        <SettingsRow
+          title="Sidebar placement"
+          description="Choose which side holds the DPCode-style thread and workspace sidebar."
+          resetAction={
+            settings.sidebarSide !== DEFAULT_UNIFIED_SETTINGS.sidebarSide ? (
+              <SettingResetButton
+                label="sidebar placement"
+                onClick={() =>
+                  updateSettings({
+                    sidebarSide: DEFAULT_UNIFIED_SETTINGS.sidebarSide,
+                  })
+                }
+              />
+            ) : null
+          }
+          control={
+            <Select
+              value={settings.sidebarSide}
+              onValueChange={(value) => {
+                if (value === "left" || value === "right") {
+                  updateSettings({ sidebarSide: value });
+                }
+              }}
+            >
+              <SelectTrigger className="w-full sm:w-40" aria-label="Sidebar placement">
+                <SelectValue>{settings.sidebarSide === "right" ? "Right" : "Left"}</SelectValue>
+              </SelectTrigger>
+              <SelectPopup align="end" alignItemWithTrigger={false}>
+                <SelectItem hideIndicator value="left">
+                  Left
+                </SelectItem>
+                <SelectItem hideIndicator value="right">
+                  Right
                 </SelectItem>
               </SelectPopup>
             </Select>

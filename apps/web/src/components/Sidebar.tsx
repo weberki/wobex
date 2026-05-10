@@ -6,6 +6,7 @@ import {
   CloudIcon,
   FolderIcon,
   GitPullRequestIcon,
+  MessageCircleIcon,
   PlusIcon,
   SearchIcon,
   SettingsIcon,
@@ -59,7 +60,7 @@ import { usePrimaryEnvironmentId } from "../environments/primary";
 import { isElectron } from "../env";
 import { APP_BASE_NAME, APP_STAGE_LABEL, APP_VERSION } from "../branding";
 import { isTerminalFocused } from "../lib/terminalFocus";
-import { isLinuxPlatform, isMacPlatform, newCommandId, newProjectId } from "../lib/utils";
+import { cn, isLinuxPlatform, isMacPlatform, newCommandId, newProjectId } from "../lib/utils";
 import {
   selectProjectByRef,
   selectProjectsAcrossEnvironments,
@@ -120,7 +121,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarSeparator,
-  SidebarTrigger,
+  SidebarHeaderTrigger,
 } from "./ui/sidebar";
 import { useThreadSelectionStore } from "../threadSelectionStore";
 import { isNonEmpty as isNonEmptyString } from "effect/String";
@@ -133,6 +134,7 @@ import {
   resolveSidebarNewThreadEnvMode,
   resolveThreadRowClassName,
   resolveThreadStatusPill,
+  getPinnedThreadsForSidebar,
   orderItemsByPreferredIds,
   shouldClearThreadSelectionOnMouseDown,
   sortProjectsForSidebar,
@@ -2146,9 +2148,7 @@ function ProjectSortMenu({
     <Menu>
       <Tooltip>
         <TooltipTrigger
-          render={
-            <MenuTrigger className="inline-flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground" />
-          }
+          render={<MenuTrigger className="sidebar-icon-button inline-flex size-5 cursor-pointer" />}
         >
           <ArrowUpDownIcon className="size-3.5" />
         </TooltipTrigger>
@@ -2235,14 +2235,163 @@ function SortableProjectItem({
   );
 }
 
+type SidebarView = "threads" | "workspace";
+
+function SidebarSegmentedPicker({
+  activeView,
+  onSelectView,
+}: {
+  activeView: SidebarView;
+  onSelectView: (view: SidebarView) => void;
+}) {
+  return (
+    <div className="px-4 pb-2">
+      <div
+        role="tablist"
+        aria-label="Sidebar view"
+        className="grid h-8 grid-cols-2 rounded-xl bg-[var(--color-background-elevated-secondary)] p-0.5"
+      >
+        {(["threads", "workspace"] as const).map((view) => {
+          const active = activeView === view;
+          return (
+            <button
+              key={view}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              className={cn(
+                "inline-flex min-w-0 items-center justify-center rounded-lg px-2 text-[length:var(--app-font-size-ui,12px)] font-medium text-muted-foreground/70 transition-colors",
+                active
+                  ? "bg-[var(--color-background-elevated-primary-opaque)] text-[var(--color-text-foreground)] shadow-sm"
+                  : "hover:text-[var(--color-text-foreground)]",
+              )}
+              onClick={() => onSelectView(view)}
+            >
+              {view === "threads" ? "Threads" : "Workspace"}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SidebarPrimaryAction({
+  active = false,
+  icon: Icon,
+  label,
+  onClick,
+  shortcutLabel,
+}: {
+  active?: boolean;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  onClick: () => void;
+  shortcutLabel?: string | null;
+}) {
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        size="default"
+        isActive={active}
+        className="h-8 gap-2.5 rounded-lg px-2 text-[length:var(--app-font-size-ui,12px)] font-normal text-muted-foreground/79 hover:bg-[var(--sidebar-accent)] hover:text-foreground data-[active=true]:bg-[var(--sidebar-accent-active)]"
+        onClick={onClick}
+      >
+        <Icon className="size-[15px]" />
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        {shortcutLabel ? (
+          <span className="shrink-0 font-mono text-[length:var(--app-font-size-ui-2xs,9px)] text-muted-foreground/45">
+            {shortcutLabel}
+          </span>
+        ) : null}
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
+
+const SidebarPinnedThreadRow = memo(function SidebarPinnedThreadRow({
+  active,
+  jumpLabel,
+  onOpenThread,
+  onTogglePinnedThread,
+  projectLabel,
+  thread,
+}: {
+  active: boolean;
+  jumpLabel: string | null;
+  onOpenThread: (threadRef: ScopedThreadRef) => void;
+  onTogglePinnedThread: (threadKey: string) => void;
+  projectLabel: string | null;
+  thread: SidebarThreadSummary;
+}) {
+  const threadRef = scopeThreadRef(thread.environmentId, thread.id);
+  const threadKey = scopedThreadKey(threadRef);
+  const running = thread.session?.status === "running" && thread.session.activeTurnId != null;
+  const handleClick = useCallback(() => {
+    onOpenThread(threadRef);
+  }, [onOpenThread, threadRef]);
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLElement>) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      onOpenThread(threadRef);
+    },
+    [onOpenThread, threadRef],
+  );
+
+  return (
+    <SidebarMenuSubItem className="w-full" data-thread-item>
+      <SidebarMenuSubButton
+        render={<div role="button" tabIndex={0} />}
+        size="sm"
+        isActive={active}
+        className={cn(
+          "group/pinned-thread h-8 w-full translate-x-0 cursor-pointer justify-start gap-2 rounded-lg px-2 text-left text-[length:var(--app-font-size-ui,12px)] font-normal focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring",
+          active
+            ? "bg-[var(--sidebar-accent-active)] text-[var(--sidebar-accent-foreground)]"
+            : "text-muted-foreground/82 hover:bg-[var(--sidebar-accent)] hover:text-foreground",
+        )}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+      >
+        <ThreadPinToggleButton
+          pinned
+          className="size-5 shrink-0 text-muted-foreground/55 group-hover/pinned-thread:text-foreground"
+          onToggle={() => onTogglePinnedThread(threadKey)}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="truncate">{thread.title}</div>
+          {projectLabel ? (
+            <div className="truncate text-[length:var(--app-font-size-ui-2xs,9px)] text-muted-foreground/45">
+              {projectLabel}
+            </div>
+          ) : null}
+        </div>
+        {running ? (
+          <span
+            aria-label="Thread running"
+            className="size-1.5 shrink-0 rounded-full bg-sky-500 dark:bg-sky-300/90"
+          />
+        ) : null}
+        {jumpLabel ? (
+          <span className="shrink-0 rounded bg-muted/65 px-1 font-mono text-[9px] text-muted-foreground/70">
+            {jumpLabel}
+          </span>
+        ) : null}
+      </SidebarMenuSubButton>
+    </SidebarMenuSubItem>
+  );
+});
+
 const SidebarChromeHeader = memo(function SidebarChromeHeader({
   isElectron,
 }: {
   isElectron: boolean;
 }) {
+  const sidebarSide = useSettings((settings) => settings.sidebarSide);
   const wordmark = (
     <div className="flex items-center gap-2">
-      <SidebarTrigger className="shrink-0 md:hidden" />
+      <SidebarHeaderTrigger className="shrink-0 md:hidden" />
       <Tooltip>
         <TooltipTrigger
           render={
@@ -2266,16 +2415,26 @@ const SidebarChromeHeader = memo(function SidebarChromeHeader({
   );
 
   return isElectron ? (
-    <SidebarHeader className="drag-region h-[52px] flex-row items-center gap-2 px-4 py-0 pl-[90px]">
+    <SidebarHeader
+      className={cn(
+        "drag-region h-[52px] flex-row items-center gap-2 px-4 py-0 font-system-ui",
+        sidebarSide === "left" && "pl-[90px]",
+      )}
+    >
       {wordmark}
     </SidebarHeader>
   ) : (
-    <SidebarHeader className="gap-3 px-3 py-2 sm:gap-2.5 sm:px-4 sm:py-3">{wordmark}</SidebarHeader>
+    <SidebarHeader className="gap-3 px-3 py-2 font-system-ui sm:gap-2.5 sm:px-4 sm:py-3">
+      {wordmark}
+    </SidebarHeader>
   );
 });
 
 const SidebarChromeFooter = memo(function SidebarChromeFooter() {
   const navigate = useNavigate();
+  const handleChatsClick = useCallback(() => {
+    void navigate({ to: "/" });
+  }, [navigate]);
   const handlePluginsClick = useCallback(() => {
     void navigate({ to: "/plugins" });
   }, [navigate]);
@@ -2284,27 +2443,37 @@ const SidebarChromeFooter = memo(function SidebarChromeFooter() {
   }, [navigate]);
 
   return (
-    <SidebarFooter className="p-2">
+    <SidebarFooter className="gap-2 p-2 font-system-ui">
       <SidebarUpdatePill />
-      <SidebarMenu>
+      <SidebarMenu className="gap-0.5">
         <SidebarMenuItem>
           <SidebarMenuButton
             size="sm"
-            className="gap-2 px-2 py-1.5 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
-            onClick={handlePluginsClick}
+            className="h-7.5 gap-2 rounded-lg px-2 py-0.5 text-left text-[length:var(--app-font-size-ui,12px)] font-normal text-muted-foreground/79 hover:bg-[var(--sidebar-accent)] hover:text-foreground"
+            onClick={handleChatsClick}
           >
-            <BlocksIcon className="size-3.5" />
-            <span className="text-xs">Library</span>
+            <MessageCircleIcon className="size-3.5" />
+            <span>Chats</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
         <SidebarMenuItem>
           <SidebarMenuButton
             size="sm"
-            className="gap-2 px-2 py-1.5 text-muted-foreground/70 hover:bg-accent hover:text-foreground"
+            className="h-7.5 gap-2 rounded-lg px-2 py-0.5 text-left text-[length:var(--app-font-size-ui,12px)] font-normal text-muted-foreground/79 hover:bg-[var(--sidebar-accent)] hover:text-foreground"
+            onClick={handlePluginsClick}
+          >
+            <BlocksIcon className="size-3.5" />
+            <span>Library</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            size="sm"
+            className="h-7.5 gap-2 rounded-lg px-2 py-0.5 text-left text-[length:var(--app-font-size-ui,12px)] font-normal text-muted-foreground/79 hover:bg-[var(--sidebar-accent)] hover:text-foreground"
             onClick={handleSettingsClick}
           >
             <SettingsIcon className="size-3.5" />
-            <span className="text-xs">Settings</span>
+            <span>Settings</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
@@ -2313,6 +2482,8 @@ const SidebarChromeFooter = memo(function SidebarChromeFooter() {
 });
 
 interface SidebarProjectsContentProps {
+  activeView: SidebarView;
+  onSelectView: (view: SidebarView) => void;
   showArm64IntelBuildWarning: boolean;
   arm64IntelBuildWarningDescription: string | null;
   desktopUpdateButtonAction: "download" | "install" | "none";
@@ -2358,7 +2529,10 @@ interface SidebarProjectsContentProps {
   suppressProjectClickForContextMenuRef: React.RefObject<boolean>;
   attachProjectListAutoAnimateRef: (node: HTMLElement | null) => void;
   projectsLength: number;
+  pinnedThreads: readonly SidebarThreadSummary[];
   pinnedThreadKeys: readonly string[];
+  projectNameByScopedKey: ReadonlyMap<string, string>;
+  navigateToThread: (threadRef: ScopedThreadRef) => void;
   onTogglePinnedThread: (threadKey: string) => void;
   onOpenSearchPalette: () => void;
   searchShortcutLabel: string | null;
@@ -2368,6 +2542,8 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
   props: SidebarProjectsContentProps,
 ) {
   const {
+    activeView,
+    onSelectView,
     showArm64IntelBuildWarning,
     arm64IntelBuildWarningDescription,
     desktopUpdateButtonAction,
@@ -2413,7 +2589,10 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
     suppressProjectClickForContextMenuRef,
     attachProjectListAutoAnimateRef,
     projectsLength,
+    pinnedThreads,
     pinnedThreadKeys,
+    projectNameByScopedKey,
+    navigateToThread,
     onTogglePinnedThread,
     onOpenSearchPalette,
     searchShortcutLabel,
@@ -2451,6 +2630,24 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
   const handleBrowseForFolderClick = useCallback(() => {
     void handlePickFolder();
   }, [handlePickFolder]);
+  const handlePrimaryNewThread = useCallback(() => {
+    const activeProject =
+      (activeRouteProjectKey
+        ? sortedProjects.find((project) => project.projectKey === activeRouteProjectKey)
+        : null) ?? sortedProjects[0];
+    if (!activeProject) {
+      handleStartAddProject();
+      return;
+    }
+    void handleNewThread(scopeProjectRef(activeProject.environmentId, activeProject.id));
+  }, [activeRouteProjectKey, handleNewThread, handleStartAddProject, sortedProjects]);
+  const getPinnedProjectLabel = useCallback(
+    (thread: Pick<SidebarThreadSummary, "environmentId" | "projectId">) =>
+      projectNameByScopedKey.get(
+        scopedProjectKey(scopeProjectRef(thread.environmentId, thread.projectId)),
+      ) ?? null,
+    [projectNameByScopedKey],
+  );
 
   return (
     <SidebarContent className="gap-0">
@@ -2477,34 +2674,58 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
           </Alert>
         </SidebarGroup>
       ) : null}
-      <SidebarGroup className="px-2 py-2">
-        <div className="mb-1 flex items-center justify-between pl-2 pr-1.5">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
-            Projects
+      <SidebarSegmentedPicker activeView={activeView} onSelectView={onSelectView} />
+      <SidebarGroup className="px-1.5 pt-1 pb-1.5">
+        <SidebarMenu className="gap-0.5">
+          <SidebarPrimaryAction
+            icon={SquarePenIcon}
+            label="New thread"
+            onClick={handlePrimaryNewThread}
+            shortcutLabel={newThreadShortcutLabel}
+          />
+          <SidebarPrimaryAction
+            icon={SearchIcon}
+            label="Search"
+            active={false}
+            onClick={onOpenSearchPalette}
+            shortcutLabel={searchShortcutLabel}
+          />
+        </SidebarMenu>
+      </SidebarGroup>
+      <SidebarGroup className="px-1.5 py-1.5">
+        {pinnedThreads.length > 0 ? (
+          <>
+            <div className="my-1 flex items-center justify-between px-2 py-1">
+              <span className="text-[length:var(--app-font-size-ui,12px)] font-normal tracking-tight text-muted-foreground/58">
+                Pinned
+              </span>
+            </div>
+            <SidebarMenuSub className="mx-0 flex translate-x-0 flex-col gap-0.5 border-l-0 px-0 py-0">
+              {pinnedThreads.map((thread) => {
+                const threadKey = threadKeyForSummary(thread);
+                return (
+                  <SidebarPinnedThreadRow
+                    key={threadKey}
+                    active={routeThreadKey === threadKey}
+                    jumpLabel={threadJumpLabelByKey.get(threadKey) ?? null}
+                    projectLabel={getPinnedProjectLabel(thread)}
+                    thread={thread}
+                    onOpenThread={navigateToThread}
+                    onTogglePinnedThread={onTogglePinnedThread}
+                  />
+                );
+              })}
+            </SidebarMenuSub>
+            <div className="-mx-1.5 my-1.5 h-px bg-border/70" />
+          </>
+        ) : (
+          <div className="-mx-1.5 my-1 h-px bg-border" />
+        )}
+        <div className="my-1 flex items-center justify-between px-2 py-1">
+          <span className="text-[length:var(--app-font-size-ui,12px)] font-normal tracking-tight text-muted-foreground/58">
+            Threads
           </span>
-          <div className="flex items-center gap-1">
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <button
-                    type="button"
-                    aria-label="Search sidebar"
-                    className="inline-flex h-5 items-center gap-1 rounded-md px-1.5 text-[10px] text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground"
-                    onClick={onOpenSearchPalette}
-                  >
-                    <SearchIcon className="size-3.5" />
-                    {searchShortcutLabel ? (
-                      <span className="font-mono text-[9px] tracking-tight">
-                        {searchShortcutLabel}
-                      </span>
-                    ) : null}
-                  </button>
-                }
-              />
-              <TooltipPopup side="right">
-                {searchShortcutLabel ? `Search sidebar (${searchShortcutLabel})` : "Search sidebar"}
-              </TooltipPopup>
-            </Tooltip>
+          <div className="-mr-1 flex items-center gap-1.5">
             <ProjectSortMenu
               projectSortOrder={projectSortOrder}
               threadSortOrder={threadSortOrder}
@@ -2518,7 +2739,7 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
                     type="button"
                     aria-label={shouldShowProjectPathEntry ? "Cancel add project" : "Add project"}
                     aria-pressed={shouldShowProjectPathEntry}
-                    className="inline-flex size-5 cursor-pointer items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
+                    className="sidebar-icon-button inline-flex size-5 cursor-pointer"
                     onClick={handleStartAddProject}
                   />
                 }
@@ -2536,25 +2757,25 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
           </div>
         </div>
         {shouldShowProjectPathEntry && (
-          <div className="mb-2 px-1">
+          <div className="mb-2.5 px-1">
             {isElectron && (
               <button
                 type="button"
-                className="mb-1.5 flex w-full items-center justify-center gap-2 rounded-md border border-border bg-secondary py-1.5 text-xs text-foreground/80 transition-colors duration-150 hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                className="mb-1.5 flex h-8 w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-background-elevated-secondary)] px-2 text-[length:var(--app-font-size-ui,12px)] font-normal text-[var(--color-text-foreground-secondary)] transition-colors hover:bg-[var(--color-background-button-secondary-hover)] hover:text-[var(--color-text-foreground)] disabled:cursor-not-allowed disabled:opacity-60"
                 onClick={handleBrowseForFolderClick}
                 disabled={isPickingFolder || isAddingProject}
               >
                 <FolderIcon className="size-3.5" />
-                {isPickingFolder ? "Picking folder..." : "Browse for folder"}
+                {isPickingFolder ? "Opening..." : isAddingProject ? "Adding..." : "Browse"}
               </button>
             )}
             <div className="flex gap-1.5">
               <input
                 ref={addProjectInputRef}
-                className={`min-w-0 flex-1 rounded-md border bg-secondary px-2 py-1 font-mono text-xs text-foreground placeholder:text-muted-foreground/40 focus:outline-none ${
+                className={`min-w-0 flex-1 rounded-lg border bg-[var(--color-background-control-opaque)] px-2.5 py-1.5 font-mono text-[length:var(--app-font-size-ui,12px)] text-foreground placeholder:text-muted-foreground/40 focus:outline-none ${
                   addProjectError
                     ? "border-red-500/70 focus:border-red-500"
-                    : "border-border focus:border-ring"
+                    : "border-[color:var(--color-border)] focus:border-[color:var(--color-border-focus)]"
                 }`}
                 placeholder="/path/to/project"
                 value={newCwd}
@@ -2564,7 +2785,7 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
               />
               <button
                 type="button"
-                className="shrink-0 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary/90 disabled:opacity-60"
+                className="shrink-0 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground transition-colors duration-150 hover:bg-primary/90 disabled:opacity-60"
                 onClick={handleAddProject}
                 disabled={!canAddProject}
               >
@@ -2588,7 +2809,7 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
             onDragEnd={handleProjectDragEnd}
             onDragCancel={handleProjectDragCancel}
           >
-            <SidebarMenu>
+            <SidebarMenu className="gap-3">
               <SortableContext
                 items={sortedProjects.map((project) => project.projectKey)}
                 strategy={verticalListSortingStrategy}
@@ -2627,7 +2848,7 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
             </SidebarMenu>
           </DndContext>
         ) : (
-          <SidebarMenu ref={attachProjectListAutoAnimateRef}>
+          <SidebarMenu ref={attachProjectListAutoAnimateRef} className="gap-3">
             {sortedProjects.map((project) => (
               <SidebarProjectListRow
                 key={project.projectKey}
@@ -3183,6 +3404,15 @@ export default function Sidebar() {
     () => sidebarThreads.filter((thread) => thread.archivedAt === null),
     [sidebarThreads],
   );
+  const pinnedThreads = useMemo(
+    () =>
+      getPinnedThreadsForSidebar({
+        threads: visibleThreads,
+        pinnedThreadKeys,
+        getThreadKey: threadKeyForSummary,
+      }),
+    [pinnedThreadKeys, visibleThreads],
+  );
   const sortedProjects = useMemo(() => {
     const sortableProjects = sidebarProjects.map((project) => ({
       ...project,
@@ -3273,6 +3503,43 @@ export default function Sidebar() {
     [projectNameByScopedKey, threads],
   );
   const isManualProjectSorting = sidebarProjectSortOrder === "manual";
+  const activeSidebarView: SidebarView = pathname.startsWith("/workspace/")
+    ? "workspace"
+    : "threads";
+  const handleSidebarViewChange = useCallback(
+    (view: SidebarView) => {
+      if (view === "threads") {
+        if (routeThreadRef) {
+          void navigate({
+            to: "/$environmentId/$threadId",
+            params: buildThreadRouteParams(routeThreadRef),
+          });
+          return;
+        }
+        void navigate({ to: "/" });
+        return;
+      }
+
+      if (routeThreadRef) {
+        void navigate({
+          to: "/workspace/$environmentId/$threadId",
+          params: buildThreadRouteParams(routeThreadRef),
+        });
+        return;
+      }
+
+      const fallbackThread = visibleThreads[0];
+      if (fallbackThread) {
+        void navigate({
+          to: "/workspace/$environmentId/$threadId",
+          params: buildThreadRouteParams(
+            scopeThreadRef(fallbackThread.environmentId, fallbackThread.id),
+          ),
+        });
+      }
+    },
+    [navigate, routeThreadRef, visibleThreads],
+  );
   const visibleSidebarThreadKeys = useMemo(
     () =>
       sortedProjects.flatMap((project) => {
@@ -3681,6 +3948,8 @@ export default function Sidebar() {
       ) : (
         <>
           <SidebarProjectsContent
+            activeView={activeSidebarView}
+            onSelectView={handleSidebarViewChange}
             showArm64IntelBuildWarning={showArm64IntelBuildWarning}
             arm64IntelBuildWarningDescription={arm64IntelBuildWarningDescription}
             desktopUpdateButtonAction={desktopUpdateButtonAction}
@@ -3726,7 +3995,10 @@ export default function Sidebar() {
             suppressProjectClickForContextMenuRef={suppressProjectClickForContextMenuRef}
             attachProjectListAutoAnimateRef={attachProjectListAutoAnimateRef}
             projectsLength={projects.length}
+            pinnedThreads={pinnedThreads}
             pinnedThreadKeys={pinnedThreadKeys}
+            projectNameByScopedKey={projectNameByScopedKey}
+            navigateToThread={navigateToThread}
             onTogglePinnedThread={togglePinnedThread}
             onOpenSearchPalette={() => setSearchPaletteOpen(true)}
             searchShortcutLabel={searchShortcutLabel}

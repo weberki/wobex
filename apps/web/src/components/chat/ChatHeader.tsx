@@ -24,7 +24,7 @@ import { Badge } from "../ui/badge";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import ProjectScriptsControl, { type NewProjectScriptInput } from "../ProjectScriptsControl";
 import { Toggle } from "../ui/toggle";
-import { SidebarTrigger } from "../ui/sidebar";
+import { SidebarHeaderTrigger } from "../ui/sidebar";
 import { OpenInPicker } from "./OpenInPicker";
 import { ProviderUsageHeaderMeter } from "./ProviderUsagePanel";
 import type { RateLimitSnapshot } from "~/lib/rateLimits";
@@ -74,7 +74,7 @@ function ProviderGlyph(props: { provider: ProviderKind | null }) {
 
   return (
     <span
-      className="inline-flex size-6 shrink-0 items-center justify-center rounded-md border border-border/55 bg-secondary/75 text-muted-foreground shadow-sm"
+      className="inline-flex size-4 shrink-0 items-center justify-center text-muted-foreground/75"
       aria-hidden="true"
     >
       <Icon className={iconClassName} />
@@ -114,11 +114,15 @@ export const ChatHeader = memo(function ChatHeader({
   onToggleWorkspaceWindow,
 }: ChatHeaderProps) {
   const providerLabel = provider ? (PROVIDER_DISPLAY_NAMES[provider] ?? provider) : "Provider";
+  const headerActionClassName =
+    "sidebar-icon-button size-6 min-w-6 rounded-md border-0 bg-transparent p-0 shadow-none before:hidden data-pressed:bg-[var(--color-background-button-secondary-hover)]";
+  const headerStatusActionClassName =
+    "sidebar-icon-button h-6 min-w-6 rounded-md border-0 bg-transparent px-1.5 shadow-none before:hidden data-pressed:bg-[var(--color-background-button-secondary-hover)]";
 
   return (
-    <div className="@container/header-actions flex min-w-0 flex-1 items-center gap-2">
+    <div className="@container/header-actions flex min-w-0 flex-1 items-center gap-2 font-system-ui">
       <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden sm:gap-3">
-        <SidebarTrigger className="size-7 shrink-0 md:hidden" />
+        <SidebarHeaderTrigger className="shrink-0 md:hidden" />
         <ProviderGlyph provider={provider} />
         <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 overflow-hidden">
           <div className="flex min-w-0 items-center gap-2">
@@ -145,7 +149,7 @@ export const ChatHeader = memo(function ChatHeader({
           </div>
         </div>
       </div>
-      <div className="flex shrink-0 items-center justify-end gap-1.5 rounded-lg border border-border/45 bg-background/45 px-1.5 py-1 shadow-sm @3xl/header-actions:gap-2">
+      <div className="flex shrink-0 items-center justify-end gap-1 rounded-lg border border-[color:var(--color-border-light,var(--border))] bg-[var(--composer-surface,var(--background))] px-1 py-1 shadow-sm @3xl/header-actions:gap-1.5">
         {activeProjectScripts && (
           <ProjectScriptsControl
             scripts={activeProjectScripts}
@@ -174,11 +178,11 @@ export const ChatHeader = memo(function ChatHeader({
           <TooltipTrigger
             render={
               <Toggle
-                className="shrink-0"
+                className={headerStatusActionClassName}
                 pressed={false}
                 onPressedChange={onOpenSessionStatus}
                 aria-label="Open session status"
-                variant="outline"
+                variant="default"
                 size="xs"
               >
                 <SlidersHorizontalIcon className="size-3" />
@@ -196,11 +200,11 @@ export const ChatHeader = memo(function ChatHeader({
           <TooltipTrigger
             render={
               <Toggle
-                className="shrink-0"
+                className={headerActionClassName}
                 pressed={false}
                 onPressedChange={onOpenWorkspacePage}
                 aria-label="Open workspace page"
-                variant="outline"
+                variant="default"
                 size="xs"
               >
                 <BlocksIcon className="size-3" />
@@ -213,11 +217,11 @@ export const ChatHeader = memo(function ChatHeader({
           <TooltipTrigger
             render={
               <Toggle
-                className="shrink-0"
+                className={headerActionClassName}
                 pressed={workspaceWindowOpen}
                 onPressedChange={onToggleWorkspaceWindow}
                 aria-label="Toggle workspace window"
-                variant="outline"
+                variant="default"
                 size="xs"
               >
                 <PanelRightIcon className="size-3" />
@@ -232,11 +236,11 @@ export const ChatHeader = memo(function ChatHeader({
           <TooltipTrigger
             render={
               <Toggle
-                className="shrink-0"
+                className={headerActionClassName}
                 pressed={terminalOpen}
                 onPressedChange={onToggleTerminal}
                 aria-label="Toggle terminal drawer"
-                variant="outline"
+                variant="default"
                 size="xs"
                 disabled={!terminalAvailable}
               >
@@ -256,11 +260,11 @@ export const ChatHeader = memo(function ChatHeader({
           <TooltipTrigger
             render={
               <Toggle
-                className="shrink-0"
+                className={headerActionClassName}
                 pressed={diffOpen}
                 onPressedChange={onToggleDiff}
                 aria-label="Toggle diff panel"
-                variant="outline"
+                variant="default"
                 size="xs"
                 disabled={!isGitRepo}
               >

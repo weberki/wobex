@@ -252,6 +252,23 @@ export function orderItemsByPreferredIds<TItem, TId>(input: {
   return [...ordered, ...remaining];
 }
 
+export function getPinnedThreadsForSidebar<TThread, TThreadKey>(input: {
+  threads: readonly TThread[];
+  pinnedThreadKeys: readonly TThreadKey[];
+  getThreadKey: (thread: TThread) => TThreadKey;
+}): TThread[] {
+  if (input.threads.length === 0 || input.pinnedThreadKeys.length === 0) {
+    return [];
+  }
+
+  const pinnedKeySet = new Set(input.pinnedThreadKeys);
+  return orderItemsByPreferredIds({
+    items: input.threads.filter((thread) => pinnedKeySet.has(input.getThreadKey(thread))),
+    preferredIds: input.pinnedThreadKeys,
+    getId: input.getThreadKey,
+  });
+}
+
 export function getVisibleSidebarThreadIds<TThreadId>(
   renderedProjects: readonly {
     shouldShowThreadPanel?: boolean;

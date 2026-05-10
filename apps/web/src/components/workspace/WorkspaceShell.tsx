@@ -36,7 +36,7 @@ export function WorkspaceShell() {
   return (
     <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none bg-background text-foreground">
       <WorkspaceRouteSync />
-      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
+      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background font-system-ui">
         {document.rootNodeId ? <WorkspaceLayoutRoot /> : <WorkspaceRouteFallback />}
       </div>
     </SidebarInset>
@@ -338,12 +338,12 @@ const WorkspaceWindowView = memo(function WorkspaceWindowView(props: { windowId:
   return (
     <section
       className={cn(
-        "flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden border border-border/70 bg-background",
-        isFocused ? "ring-1 ring-border/80" : "",
+        "flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden border border-[color:var(--color-border-light,var(--border))] bg-background",
+        isFocused ? "ring-1 ring-[var(--color-border-focus,var(--ring))]/20" : "",
       )}
       onMouseDown={() => focusWindow(props.windowId)}
     >
-      <div className="flex min-w-0 items-center gap-1 border-b border-border/70 bg-muted/20 px-2 py-1.5">
+      <div className="flex min-w-0 items-center gap-1 border-b border-[color:var(--color-border-light,var(--border))] bg-[var(--color-background-surface-under,var(--muted))] px-2 py-1.5">
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
           {window.tabIds.map((surfaceId) => {
             const surface = document.surfacesById[surfaceId];
@@ -355,10 +355,10 @@ const WorkspaceWindowView = memo(function WorkspaceWindowView(props: { windowId:
               <div
                 key={surfaceId}
                 className={cn(
-                  "group flex max-w-[18rem] min-w-0 items-center gap-1 rounded-md border px-2 py-1 text-xs",
+                  "group flex max-w-[18rem] min-w-0 items-center gap-1 rounded-lg border px-2 py-1 text-[length:var(--app-font-size-ui-sm,11px)]",
                   isActive
-                    ? "border-border bg-background text-foreground"
-                    : "border-transparent text-muted-foreground hover:bg-accent/50",
+                    ? "border-[color:var(--color-border-light,var(--border))] bg-background text-foreground"
+                    : "border-transparent text-muted-foreground hover:bg-[var(--color-background-button-secondary-hover)]",
                 )}
               >
                 <button
@@ -370,7 +370,7 @@ const WorkspaceWindowView = memo(function WorkspaceWindowView(props: { windowId:
                 </button>
                 <button
                   type="button"
-                  className="rounded-sm p-0.5 text-muted-foreground opacity-0 transition group-hover:opacity-100 hover:bg-accent hover:text-foreground"
+                  className="sidebar-icon-button size-5 opacity-0 transition-opacity group-hover:opacity-100"
                   onClick={() => closeSurface(surfaceId)}
                   aria-label="Close tab"
                 >
@@ -383,7 +383,7 @@ const WorkspaceWindowView = memo(function WorkspaceWindowView(props: { windowId:
         <div className="hidden items-center gap-1 md:flex">
           <button
             type="button"
-            className="rounded-sm p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+            className="sidebar-icon-button size-6"
             onClick={() => splitWindowSurface(props.windowId, "x")}
             aria-label="Split active tab right"
             title="Split active tab right"
@@ -392,7 +392,7 @@ const WorkspaceWindowView = memo(function WorkspaceWindowView(props: { windowId:
           </button>
           <button
             type="button"
-            className="rounded-sm p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+            className="sidebar-icon-button size-6"
             onClick={() => splitWindowSurface(props.windowId, "y")}
             aria-label="Split active tab down"
             title="Split active tab down"

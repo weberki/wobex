@@ -5,6 +5,7 @@ import {
   describeAddProjectError,
   getVisibleSidebarThreadIds,
   resolveAdjacentThreadId,
+  getPinnedThreadsForSidebar,
   getFallbackThreadIdAfterDelete,
   getVisibleThreadsForProject,
   getProjectSortTimestamp,
@@ -290,6 +291,25 @@ describe("orderItemsByPreferredIds", () => {
     expect(ordered.map((project) => project.id)).toEqual([
       ProjectId.make("project-2"),
       ProjectId.make("project-1"),
+    ]);
+  });
+});
+
+describe("getPinnedThreadsForSidebar", () => {
+  it("returns pinned threads in persisted pin order and skips stale keys", () => {
+    const pinned = getPinnedThreadsForSidebar({
+      threads: [
+        { id: ThreadId.make("thread-a"), title: "A" },
+        { id: ThreadId.make("thread-b"), title: "B" },
+        { id: ThreadId.make("thread-c"), title: "C" },
+      ],
+      pinnedThreadKeys: ["thread-c", "missing-thread", "thread-a", "thread-c"],
+      getThreadKey: (thread) => thread.id,
+    });
+
+    expect(pinned.map((thread) => thread.id)).toEqual([
+      ThreadId.make("thread-c"),
+      ThreadId.make("thread-a"),
     ]);
   });
 });
