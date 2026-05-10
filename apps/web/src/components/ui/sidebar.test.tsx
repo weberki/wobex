@@ -2,6 +2,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import {
+  Sidebar,
+  SidebarHeaderTrigger,
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuSubButton,
@@ -49,5 +51,31 @@ describe("sidebar interactive cursors", () => {
 
     expect(html).toContain('data-slot="sidebar-menu-sub-button"');
     expect(html).toContain("cursor-pointer");
+  });
+
+  it("applies custom sidebar gap and inner surface classes", () => {
+    const html = renderToStaticMarkup(
+      <SidebarProvider>
+        <Sidebar gapClassName="custom-gap" innerClassName="custom-inner" transparentSurface>
+          content
+        </Sidebar>
+      </SidebarProvider>,
+    );
+
+    expect(html).toContain("custom-gap");
+    expect(html).toContain("custom-inner");
+    expect(html).toContain("bg-transparent");
+  });
+
+  it("renders a compact header trigger", () => {
+    const html = renderToStaticMarkup(
+      <SidebarProvider>
+        <SidebarHeaderTrigger aria-label="Toggle sidebar" />
+      </SidebarProvider>,
+    );
+
+    expect(html).toContain('data-slot="sidebar-trigger"');
+    expect(html).toContain("sidebar-icon-button");
+    expect(html).toContain("size-6");
   });
 });

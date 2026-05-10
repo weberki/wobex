@@ -12,9 +12,26 @@ import { resolveShortcutCommand } from "../keybindings";
 import { selectThreadTerminalState, useTerminalStateStore } from "../terminalStateStore";
 import { useThreadSelectionStore } from "../threadSelectionStore";
 import { WorkspaceShell } from "~/components/workspace/WorkspaceShell";
+import ThreadSidebar from "~/components/Sidebar";
 import { resolveSidebarNewThreadEnvMode } from "~/components/Sidebar.logic";
+import { Sidebar, SidebarProvider, SidebarRail } from "~/components/ui/sidebar";
 import { useSettings } from "~/hooks/useSettings";
 import { useServerKeybindings } from "~/rpc/serverState";
+
+const THREAD_SIDEBAR_WIDTH_STORAGE_KEY = "wobex_thread_sidebar_width";
+const THREAD_SIDEBAR_MIN_WIDTH = 13 * 16;
+const THREAD_MAIN_CONTENT_MIN_WIDTH = 40 * 16;
+
+const SIDEBAR_GAP_CLASS = {
+  left: "overflow-hidden after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-[color:var(--color-border-light)]",
+  right:
+    "overflow-hidden after:absolute after:inset-y-0 after:left-0 after:w-px after:bg-[color:var(--color-border-light)]",
+} as const;
+
+const SIDEBAR_INNER_CLASS = {
+  left: "app-sidebar-surface border-r border-[color:var(--color-border-light)]",
+  right: "app-sidebar-surface border-l border-[color:var(--color-border-light)]",
+} as const;
 
 function ChatRouteGlobalShortcuts() {
   const clearSelection = useThreadSelectionStore((state) => state.clearSelection);
@@ -100,10 +117,31 @@ function ChatRouteGlobalShortcuts() {
 function ChatRouteLayout() {
   const pathname = useLocation({ select: (location) => location.pathname });
   const isLegacyWorkspaceRoute = pathname.startsWith("/workspace/");
+  const sidebarSide = useSettings((settings) => settings.sidebarSide);
+  const sidebarElement = (
+    <Sidebar
+      side={sidebarSide}
+      collapsible="offcanvas"
+      className="text-foreground"
+      gapClassName={SIDEBAR_GAP_CLASS[sidebarSide]}
+      innerClassName={SIDEBAR_INNER_CLASS[sidebarSide]}
+      transparentSurface
+      resizable={{
+        minWidth: THREAD_SIDEBAR_MIN_WIDTH,
+        shouldAcceptWidth: ({ nextWidth, wrapper }) =>
+          wrapper.clientWidth - nextWidth >= THREAD_MAIN_CONTENT_MIN_WIDTH,
+        storageKey: THREAD_SIDEBAR_WIDTH_STORAGE_KEY,
+      }}
+    >
+      <ThreadSidebar />
+      <SidebarRail />
+    </Sidebar>
+  );
 
   return (
-    <>
+    <SidebarProvider defaultOpen>
       <ChatRouteGlobalShortcuts />
+      {sidebarSide === "left" ? sidebarElement : null}
       {isLegacyWorkspaceRoute ? (
         <Outlet />
       ) : (
@@ -112,7 +150,8 @@ function ChatRouteLayout() {
           <Outlet />
         </>
       )}
-    </>
+      {sidebarSide === "right" ? sidebarElement : null}
+    </SidebarProvider>
   );
 }
 

@@ -17,6 +17,7 @@ describe("ClientSettingsSchema", () => {
       uiFontFamily: "",
       chatCodeFontFamily: "",
       chatFontSizePx: DEFAULT_CHAT_FONT_SIZE_PX,
+      sidebarSide: "left",
     });
   });
 

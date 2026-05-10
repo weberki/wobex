@@ -175,6 +175,9 @@ function Sidebar({
   variant = "sidebar",
   collapsible = "offcanvas",
   resizable = false,
+  gapClassName,
+  innerClassName,
+  transparentSurface = false,
   className,
   children,
   ...props
@@ -182,6 +185,9 @@ function Sidebar({
   side?: "left" | "right";
   variant?: "sidebar" | "floating" | "inset";
   collapsible?: "offcanvas" | "icon" | "none";
+  gapClassName?: string;
+  innerClassName?: string;
+  transparentSurface?: boolean;
   resizable?: boolean | SidebarResizableOptions;
 }) {
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
@@ -209,7 +215,9 @@ function Sidebar({
       <SidebarInstanceContext.Provider value={instanceContextValue}>
         <div
           className={cn(
-            "flex h-full w-(--sidebar-width) flex-col bg-sidebar text-sidebar-foreground",
+            "flex h-full w-(--sidebar-width) flex-col text-sidebar-foreground",
+            transparentSurface ? "bg-transparent" : "bg-sidebar",
+            innerClassName,
             className,
           )}
           data-slot="sidebar"
@@ -227,7 +235,8 @@ function Sidebar({
         <Sheet onOpenChange={setOpenMobile} open={openMobile} {...props}>
           <SheetPopup
             className={cn(
-              "w-(--sidebar-width) max-w-none bg-sidebar p-0 text-sidebar-foreground",
+              "w-(--sidebar-width) max-w-none p-0 text-sidebar-foreground",
+              transparentSurface ? "bg-transparent" : "bg-sidebar",
               className,
             )}
             data-mobile="true"
@@ -245,7 +254,7 @@ function Sidebar({
               <SheetTitle>Sidebar</SheetTitle>
               <SheetDescription>Displays the mobile sidebar.</SheetDescription>
             </SheetHeader>
-            <div className="flex h-full w-full flex-col">{children}</div>
+            <div className={cn("flex h-full w-full flex-col", innerClassName)}>{children}</div>
           </SheetPopup>
         </Sheet>
       </SidebarInstanceContext.Provider>
@@ -271,6 +280,7 @@ function Sidebar({
             variant === "floating" || variant === "inset"
               ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]"
               : "group-data-[collapsible=icon]:w-(--sidebar-width-icon)",
+            gapClassName,
           )}
           data-slot="sidebar-gap"
         />
@@ -290,7 +300,11 @@ function Sidebar({
           {...props}
         >
           <div
-            className="flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow-sm/5"
+            className={cn(
+              "flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow-sm/5",
+              transparentSurface ? "bg-transparent" : "bg-sidebar",
+              innerClassName,
+            )}
             data-sidebar="sidebar"
             data-slot="sidebar-inner"
           >
@@ -321,6 +335,12 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
       {openMobile ? <PanelLeftCloseIcon /> : <PanelLeftIcon />}
       <span className="sr-only">Toggle Sidebar</span>
     </Button>
+  );
+}
+
+function SidebarHeaderTrigger(props: React.ComponentProps<typeof SidebarTrigger>) {
+  return (
+    <SidebarTrigger {...props} className={cn("sidebar-icon-button size-6", props.className)} />
   );
 }
 
@@ -975,6 +995,7 @@ export {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
+  SidebarHeaderTrigger,
   SidebarInput,
   SidebarInset,
   SidebarMenu,
