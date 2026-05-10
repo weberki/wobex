@@ -58,6 +58,7 @@ import ChatMarkdown from "./ChatMarkdown";
 import { ChangedFilesTree } from "./chat/ChangedFilesTree";
 import { VscodeEntryIcon } from "./chat/VscodeEntryIcon";
 import { deriveActivitySummaryModel } from "./activitySummary.logic";
+import { WorkspaceImagegenPanel } from "./WorkspaceImagegenPanel";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "./ui/empty";
@@ -72,6 +73,7 @@ export const WorkspaceWindowTabSchema = Schema.Literals([
   "git",
   "browser",
   "graph",
+  "imagegen",
 ]);
 export type WorkspaceWindowTab = typeof WorkspaceWindowTabSchema.Type;
 
@@ -88,6 +90,7 @@ const WORKSPACE_WINDOW_TABS = [
   { value: "git", label: "Git", Icon: GitBranchIcon },
   { value: "browser", label: "Browser", Icon: GlobeIcon },
   { value: "graph", label: "Graph", Icon: WaypointsIcon },
+  { value: "imagegen", label: "Imagegen", Icon: ImageIcon },
 ] as const satisfies ReadonlyArray<{
   value: WorkspaceWindowTab;
   label: string;
@@ -330,6 +333,12 @@ export const WorkspaceWindow = memo(function WorkspaceWindow(props: {
               selectedPreviewPath={props.selectedPreviewPath}
               environmentId={props.environmentId}
               gitCwd={props.gitCwd}
+            />
+          ) : null}
+          {props.activeTab === "imagegen" ? (
+            <WorkspaceImagegenPanel
+              environmentId={props.environmentId}
+              workspaceRoot={props.workspaceRoot}
             />
           ) : null}
         </div>
